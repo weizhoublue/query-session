@@ -1,0 +1,21 @@
+name: PR Check
+
+on:
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Unit tests
+        run: go test ./... -count=1
+
+      - name: Linux amd64 build
+        run: GOOS=linux GOARCH=amd64 go build -o /dev/null ./cmd/query-session
