@@ -51,9 +51,9 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 		return 2, err
 	}
 
-	logInfo := func(format string, args ...any) {
+	log := func(level, format string, args ...any) {
 		if debug {
-			fmt.Fprintf(stderr, "[info] "+format+"\n", args...)
+			fmt.Fprintf(stderr, "[%s] %s\n", level, fmt.Sprintf(format, args...))
 		}
 	}
 	if provider != string(session.ProviderClaude) {
@@ -78,9 +78,9 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 	}
 
 	projectsRoot := filepath.Join(home, ".claude", "projects")
-	logInfo("scanning claude sessions under %s", projectsRoot)
-	sessions, err := claude.Scan(projectsRoot, "/", func(_ string, message string) {
-		logInfo("%s", message)
+	log("info", "scanning claude sessions under %s", projectsRoot)
+	sessions, err := claude.Scan(projectsRoot, "/", func(level string, message string) {
+		log(level, "%s", message)
 	})
 	if err != nil {
 		return 1, err

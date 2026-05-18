@@ -101,7 +101,7 @@ func scanFile(path, dir string, log Logger) (session.Session, bool, error) {
 
 		timestamp, err := time.Parse(time.RFC3339Nano, entry.Timestamp)
 		if err != nil {
-			debug(log, "invalid timestamp in %s:%d: %v", path, lineNum, err)
+			logParseError(log, "invalid timestamp in %s:%d: %v", path, lineNum, err)
 			continue
 		}
 
@@ -114,7 +114,7 @@ func scanFile(path, dir string, log Logger) (session.Session, bool, error) {
 		result.LastMsg = msg
 	}
 	if err := scanner.Err(); err != nil {
-		debug(log, "failed to scan %s: %v", path, err)
+		logParseError(log, "failed to scan %s: %v", path, err)
 		return session.Session{}, false, nil
 	}
 
@@ -124,7 +124,7 @@ func scanFile(path, dir string, log Logger) (session.Session, bool, error) {
 func parseLine(line []byte, path string, lineNum int, log Logger) (jsonlEntry, bool) {
 	var entry jsonlEntry
 	if err := json.Unmarshal(line, &entry); err != nil {
-		debug(log, "invalid JSON in %s:%d: %v", path, lineNum, err)
+		logParseError(log, "invalid JSON in %s:%d: %v", path, lineNum, err)
 		return jsonlEntry{}, false
 	}
 	return entry, true
@@ -182,8 +182,8 @@ func nextEncodedSegment(encoded string, pos int) (string, int, string) {
 	return segment, end, encoded[rawStart:]
 }
 
-func debug(log Logger, format string, args ...any) {
+func logParseError(log Logger, format string, args ...any) {
 	if log != nil {
-		log("debug", fmt.Sprintf(format, args...))
+		log("error", fmt.Sprintf(format, args...))
 	}
 }
