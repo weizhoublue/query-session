@@ -28,6 +28,19 @@ query-session
 ./query-session -t claude -l=false
 ```
 
+当前 CLI 参数：
+
+```text
+-d / --debug
+-e / --end-day
+-l / --last
+-p / --project
+-s / --start-day
+-t / --type
+```
+
+`-l` / `--last` 默认是 `false`，所以不带 `-l` 时会输出所有匹配会话。
+
 ## 输出格式
 
 每个会话输出一行：
@@ -126,6 +139,15 @@ debug 日志输出到 stderr。
 [info] message
 [error] message
 ```
+
+debug 日志会展示：
+
+- 扫描到的 Claude 项目目录。
+- 扫描到的 JSONL 会话文件。
+- 成功解析出的会话。
+- 因没有人类用户消息被跳过的文件。
+- 过滤命中或过滤原因。
+- `-l=true` 时最终选择的最新会话。
 
 ## 当前不支持 Codex
 

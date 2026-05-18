@@ -17,6 +17,7 @@
 ```text
 SessionID
 Dir
+File
 CreateTime
 LastTime
 FirstMsg
@@ -95,17 +96,23 @@ decoded: /Users/weizhoulan/.hermes/skills
 
 每个 JSONL 文件一行是一条会话记录。
 
-当前只关心：
+当前候选记录先要求：
 
 ```text
 message.role == "user"
 ```
 
+但仅满足 `message.role == "user"` 不够。Claude 会把工具返回结果也记录成 `message.role=user`，例如 `tool_result`。这类记录不是人类主动输入，不能用于 `FirstMsg` / `LastMsg`。
+
 解析规则：
 
-- 第一条用户消息提供 `CreateTime` 和 `FirstMsg`。
-- 最后一条用户消息提供 `LastTime` 和 `LastMsg`。
-- 没有用户消息的文件跳过。
+- JSON 行必须能正常解析。
+- `message.role` 必须等于 `user`。
+- `timestamp` 必须能按 RFC3339/RFC3339Nano 解析。
+- `message.content` 必须能提取出非空的人类可读文本。
+- 第一条满足以上条件的记录提供 `CreateTime` 和 `FirstMsg`。
+- 最后一条满足以上条件的记录提供 `LastTime` 和 `LastMsg`。
+- 没有满足条件的人类用户消息时，文件跳过。
 - 非法 JSON 行跳过。
 - 非法 timestamp 行跳过。
 - 单行最大扫描 buffer 当前设置为 10 MiB。
@@ -113,7 +120,28 @@ message.role == "user"
 消息内容支持：
 
 - 字符串形式的 `message.content`。
-- 数组形式的 `message.content`，提取其中的 `text` 字段并拼接。
+- 数组形式的 `message.content`，只提取数组元素的顶层 `text` 字段并拼接。
+- 数组元素没有顶层 `text` 时不产生用户消息文本。
+
+`tool_result` 被跳过的原因：
+
+```json
+{
+  "message": {
+    "role": "user",
+    "content": [
+      {
+        "type": "tool_result",
+        "content": [
+          { "type": "text", "text": "tool output" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+这里的 `text` 在 `tool_result.content[]` 内部，不在 `message.content[]` 元素顶层。当前实现不会把它当作人类输入，因此不会覆盖 `LastMsg`。
 
 ## 过滤和排序
 
@@ -172,6 +200,16 @@ debug 日志只有 `-d=true` 时输出到 stderr：
 [info] message
 [error] message
 ```
+
+debug 日志覆盖：
+
+- `scan project`：扫描到的 Claude 项目目录和解码后的真实目录。
+- `scan file`：扫描到的 JSONL 会话文件。
+- `parsed`：成功解析出的会话。
+- `skip file`：因为没有人类用户消息而跳过的文件。
+- `matched`：通过过滤条件的会话。
+- `filtered`：被日期或项目条件过滤掉的会话。
+- `selected latest`：`-l=true` 时最终选中的会话。
 
 ## Codex 状态
 

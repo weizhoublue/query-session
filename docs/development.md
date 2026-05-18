@@ -95,6 +95,22 @@ go run ./cmd/query-session -s 20260518 -e 20260518 -p '.*' -l=false
 go run ./cmd/query-session -d=true -p '.*' -l=false
 ```
 
+debug 输出应该能看到扫描和过滤链路：
+
+```text
+[info] scan project encoded=... dir=... path=...
+[info] scan file sessionId=... file=... dir=...
+[info] parsed sessionId=... dir=... createTime=... lastTime=...
+[info] matched sessionId=... dir=... createTime=... lastTime=...
+```
+
+如果某个会话没有输出，优先看：
+
+- 是否出现 `scan file`，确认 JSONL 文件被扫描。
+- 是否出现 `skip file reason=no-user-message`，确认没有可用的人类用户消息。
+- 是否出现 `filtered reason=project`，确认项目目录过滤不匹配。
+- 是否出现 `filtered reason=date`，确认创建时间不在日期范围内。
+
 验证错误输出：
 
 ```bash
@@ -150,6 +166,32 @@ go run ./cmd/query-session -t codex
 - 解码 Claude 项目目录。
 - 读取一级 JSONL 会话文件。
 - 提取第一条和最后一条用户消息。
+- 跳过 Claude 记录中的 `tool_result` 用户角色记录，避免工具返回内容覆盖 `LastMsg`。
+
+## Claude 用户消息调试
+
+Claude JSONL 中并不是所有 `message.role=user` 都是人类输入。
+
+有效的人类用户消息需要同时满足：
+
+- JSON 行可解析。
+- `message.role == "user"`。
+- `timestamp` 可解析。
+- `message.content` 能提取出非空文本。
+
+当前提取文本的规则：
+
+- `message.content` 是字符串时直接使用。
+- `message.content` 是数组时，只读取数组元素顶层 `text` 字段。
+- `tool_result.content[].text` 不读取。
+
+排查某个文件最后一条用户消息：
+
+```bash
+rg -n '"role":"user"|"role": "user"' /path/to/session.jsonl | tail -n 10
+```
+
+如果最后几条 `role=user` 是工具结果，应以最后一条真正的人类输入作为 `lastMsg`。
 
 `cmd/query-session`：
 
