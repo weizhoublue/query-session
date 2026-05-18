@@ -22,21 +22,16 @@ jobs:
         run: |
           GOOS=linux GOARCH=amd64 go build -o query-session-linux-amd64 ./cmd/query-session
 
-      - name: Build darwin amd64
-        run: |
-          GOOS=darwin GOARCH=amd64 go build -o query-session-darwin-amd64 ./cmd/query-session
-
       - name: Build darwin arm64
         run: |
-          GOOS=darwin GOARCH=arm64 go build -o query-session-darwin-arm64 ./cmd/query-session
+          GOOS=darwin GOARCH=arm64 go build -o query-session-macos-arm64 ./cmd/query-session
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             query-session-linux-amd64
-            query-session-darwin-amd64
-            query-session-darwin-arm64
+            query-session-macos-arm64
           generate_release_notes: true
 
       - name: Create release branch

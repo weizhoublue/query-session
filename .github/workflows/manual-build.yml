@@ -28,19 +28,18 @@ jobs:
         run: |
           GOOS=linux GOARCH=amd64 go build -o query-session-linux-amd64 ./cmd/query-session
 
-      - name: Build darwin amd64
-        run: |
-          GOOS=darwin GOARCH=amd64 go build -o query-session-darwin-amd64 ./cmd/query-session
-
       - name: Build darwin arm64
         run: |
-          GOOS=darwin GOARCH=arm64 go build -o query-session-darwin-arm64 ./cmd/query-session
+          GOOS=darwin GOARCH=arm64 go build -o query-session-macos-arm64 ./cmd/query-session
 
-      - name: Upload artifacts
+      - name: Upload linux amd64
         uses: actions/upload-artifact@v4
         with:
-          name: query-session-${{ inputs.version }}
-          path: |
-            query-session-linux-amd64
-            query-session-darwin-amd64
-            query-session-darwin-arm64
+          name: query-session-linux-amd64-${{ inputs.version }}
+          path: query-session-linux-amd64
+
+      - name: Upload macos arm64
+        uses: actions/upload-artifact@v4
+        with:
+          name: query-session-macos-arm64-${{ inputs.version }}
+          path: query-session-macos-arm64
