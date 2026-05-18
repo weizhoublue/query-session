@@ -123,16 +123,16 @@ go run ./cmd/query-session -t nope
 [error] unknown provider: nope
 ```
 
-验证 Codex 未实现：
+验证 Codex：
 
 ```bash
-go run ./cmd/query-session -t codex
+go run ./cmd/query-session -t codex -p '.*' -l=false
 ```
 
-期望 stderr：
+debug 模式：
 
-```text
-[error] codex provider is not implemented in this phase
+```bash
+go run ./cmd/query-session -t codex -p '.*' -l=false -d=true
 ```
 
 ## 推荐开发步骤
@@ -200,13 +200,11 @@ rg -n '"role":"user"|"role": "user"' /path/to/session.jsonl | tail -n 10
 - 调用过滤和输出逻辑。
 - 统一错误输出。
 
-## 第二阶段提示
+`internal/codex`：
 
-Codex provider 不应混在 Claude 修复中实现。
-
-第二阶段应单独增加：
-
-- `internal/codex/codex.go`
-- `internal/codex/codex_test.go`
-- CLI 中 `-t codex` 的真实分支
-- 对应文档更新
+- 按日期范围遍历 `$HOME/.codex/sessions/YYYY/MM/DD/`。
+- 读取 `*.jsonl` 会话文件。
+- 从 `payload.id` 提取会话 ID（回退到文件名）。
+- 从 `payload.cwd` 提取目录。
+- 提取 `payload.role=="user"` 且 `payload.content` 数组中第一个 `input_text` 的消息。
+- 跳过非法 JSON 行和非法 timestamp 行。

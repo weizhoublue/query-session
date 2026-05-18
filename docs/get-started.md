@@ -1,6 +1,6 @@
 # 快速开始
 
-`query-session` 用于查询本机 Claude 会话信息。当前阶段只支持 Claude provider。
+`query-session` 用于查询本机 Claude 和 Codex 会话信息。
 
 ## 构建
 
@@ -149,16 +149,14 @@ debug 日志会展示：
 - 过滤命中或过滤原因。
 - `-l=true` 时最终选择的最新会话。
 
-## 当前不支持 Codex
+## 查询 Codex 会话
 
-当前阶段 `-t codex` 未实现：
+使用 `-t codex` 切换到 Codex provider：
 
 ```bash
-./query-session -t codex
+./query-session -t codex -p '.*' -l=false
 ```
 
-会返回错误：
+Codex 会话 ID 优先取自 `payload.id`，回退到文件名。目录取自 `payload.cwd`。消息内容取 `payload.content` 数组中第一个 `input_text`。
 
-```text
-[error] codex provider is not implemented in this phase
-```
+其他过滤、排序、输出格式与 Claude 一致。

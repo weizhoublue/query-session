@@ -211,14 +211,55 @@ debug 日志覆盖：
 - `filtered`：被日期或项目条件过滤掉的会话。
 - `selected latest`：`-l=true` 时最终选中的会话。
 
-## Codex 状态
+## Codex Provider
 
-当前实现没有 Codex provider。
-
-`-t codex` 会返回明确错误：
+Codex 会话来自：
 
 ```text
-codex provider is not implemented in this phase
+$HOME/.codex/sessions
 ```
 
-Codex 的数据源、解析规则和测试应在第二阶段单独实现。
+目录结构：
+
+```text
+$HOME/.codex/sessions/YYYY/MM/DD/*.jsonl
+```
+
+规则：
+
+- 按日期范围遍历 `YYYY/MM/DD/` 子目录，只扫描匹配日期目录减少无效扫描。
+- 每个日期目录下的 `*.jsonl` 文件即会话。
+
+会话 ID（优先级从高到低）：
+
+1. 使用第一条包含 `payload.id` 的 JSONL 记录。
+2. 如果遍历完仍未找到 `payload.id`，从文件名提取 ID（去掉 `.jsonl` 后缀）。
+
+目录：
+
+- 使用第一条包含 `payload.cwd` 的 JSONL 记录。
+- 如果没有 `payload.cwd`，`Dir` 保持为空。
+
+文件路径：
+
+- `File` 字段填入 JSONL 文件完整路径。
+
+## Codex JSONL 解析
+
+有效用户消息需同时满足：
+
+1. `payload.role == "user"`
+2. `payload.content` 是数组，且能从中取出第一个 `type="input_text"` 且 `text` 非空的成员
+
+解析规则：
+
+- JSON 行必须能正常解析。
+- `payload.role` 必须等于 `user`。
+- `timestamp` 必须能按 RFC3339/RFC3339Nano 解析。
+- 从 `payload.content` 数组中提取第一个 `type="input_text"` 且 `text` trim 后非空的成员。
+- 第一条有效用户消息提供 `CreateTime` 和 `FirstMsg`。
+- 最后一条有效用户消息提供 `LastTime` 和 `LastMsg`。
+- 没有有效用户消息时，文件跳过。
+- 非法 JSON 行跳过。
+- 非法 timestamp 行跳过。
+- 单行最大扫描 buffer 为 10 MiB。

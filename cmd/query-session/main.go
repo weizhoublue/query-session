@@ -152,6 +152,6 @@ Options:
   -s / --start-day string
         start day in YYYYMMDD (default %q)
   -t / --type string
-        provider (default "claude")
+        provider: claude or codex (default "claude")
 `, today, today)
 }
