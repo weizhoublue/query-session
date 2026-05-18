@@ -29,6 +29,17 @@ func TestDecodeProjectDirHandlesHiddenDirectorySegment(t *testing.T) {
 	}
 }
 
+func TestDecodeProjectDirPreservesRawSuffixWhenHiddenSegmentMissing(t *testing.T) {
+	fsRoot := t.TempDir()
+	mustMkdirAll(t, filepath.Join(fsRoot, "Users", "me"))
+
+	got := DecodeProjectDir("Users-me--missing-project", fsRoot)
+	want := filepath.Join(fsRoot, "Users", "me", "--missing-project")
+	if got != want {
+		t.Fatalf("DecodeProjectDir() = %q, want %q", got, want)
+	}
+}
+
 func TestScanIgnoresSessionSubdirectories(t *testing.T) {
 	projectsRoot := t.TempDir()
 	fsRoot := t.TempDir()

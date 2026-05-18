@@ -155,12 +155,14 @@ func messageText(raw json.RawMessage) string {
 }
 
 func nextEncodedSegment(encoded string, pos int) (string, int, string) {
+	rawStart := pos
 	hidden := false
 	if strings.HasPrefix(encoded[pos:], "--") {
 		hidden = true
 		pos += 2
 	} else if encoded[pos] == '-' {
 		pos++
+		rawStart = pos
 	}
 
 	end := strings.IndexByte(encoded[pos:], '-')
@@ -174,7 +176,7 @@ func nextEncodedSegment(encoded string, pos int) (string, int, string) {
 	if hidden {
 		segment = "." + segment
 	}
-	return segment, end, encoded[pos:]
+	return segment, end, encoded[rawStart:]
 }
 
 func debug(log Logger, format string, args ...any) {
