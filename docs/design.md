@@ -144,8 +144,10 @@ message.role == "user"
 输出一行一个会话：
 
 ```text
-dir=yyy sessionId=xxxx createTime=xxxx lastTime=xxxx firstMsg="..." lastMsg="..."
+dir=yyy sessionId=xxxx createTime=xxxx lastTime=xxxx file=xxxx.jsonl firstMsg="..." lastMsg="..."
 ```
+
+`file` 是完整 JSONL 会话文件路径。
 
 消息摘要会做清洗：
 

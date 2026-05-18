@@ -42,6 +42,7 @@ func TestFormatLineUsesCompleteFixedFormat(t *testing.T) {
 	s := Session{
 		Dir:        "/repo/app",
 		SessionID:  "session-1",
+		File:       "/claude/project/session-1.jsonl",
 		CreateTime: time.Date(2026, 5, 18, 9, 10, 11, 0, loc),
 		LastTime:   time.Date(2026, 5, 18, 12, 13, 14, 0, loc),
 		FirstMsg:   "hello\n\"first\" message",
@@ -49,7 +50,7 @@ func TestFormatLineUsesCompleteFixedFormat(t *testing.T) {
 	}
 
 	got := FormatLine(s)
-	want := `dir=/repo/app sessionId=session-1 createTime=20260518_09:10:11 lastTime=20260518_12:13:14 firstMsg="hello firs" lastMsg="last messa"`
+	want := `dir=/repo/app sessionId=session-1 createTime=20260518_09:10:11 lastTime=20260518_12:13:14 file=/claude/project/session-1.jsonl firstMsg="hello firs" lastMsg="last messa"`
 	if got != want {
 		t.Fatalf("got %q want %q", got, want)
 	}

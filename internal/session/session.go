@@ -15,6 +15,7 @@ const (
 type Session struct {
 	SessionID  string
 	Dir        string
+	File       string
 	CreateTime time.Time
 	LastTime   time.Time
 	FirstMsg   string

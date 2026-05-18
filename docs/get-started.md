@@ -33,7 +33,7 @@ query-session
 每个会话输出一行：
 
 ```text
-dir=yyy sessionId=xxxx createTime=xxxx lastTime=xxxx firstMsg="..." lastMsg="..."
+dir=yyy sessionId=xxxx createTime=xxxx lastTime=xxxx file=xxxx.jsonl firstMsg="..." lastMsg="..."
 ```
 
 字段含义：
@@ -42,6 +42,7 @@ dir=yyy sessionId=xxxx createTime=xxxx lastTime=xxxx firstMsg="..." lastMsg="...
 - `sessionId`：Claude 会话 ID。
 - `createTime`：第一条用户消息时间。
 - `lastTime`：最后一条用户消息时间。
+- `file`：完整 JSONL 会话文件路径。
 - `firstMsg`：第一条用户消息摘要，最多 10 个 Unicode 字符。
 - `lastMsg`：最后一条用户消息摘要，最多 10 个 Unicode 字符。
 

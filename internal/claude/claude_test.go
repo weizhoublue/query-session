@@ -73,6 +73,9 @@ func TestScanIgnoresSessionSubdirectories(t *testing.T) {
 	if sessions[0].SessionID != "kept" {
 		t.Fatalf("SessionID = %q, want kept", sessions[0].SessionID)
 	}
+	if sessions[0].File != filepath.Join(projectDir, "kept.jsonl") {
+		t.Fatalf("File = %q, want kept jsonl path", sessions[0].File)
+	}
 }
 
 func TestScanUsesFirstAndLastUserMessages(t *testing.T) {
@@ -99,8 +102,9 @@ func TestScanUsesFirstAndLastUserMessages(t *testing.T) {
 	wantCreate := time.Date(2026, 5, 18, 10, 0, 0, 0, time.UTC)
 	wantLast := time.Date(2026, 5, 18, 12, 30, 0, 0, time.UTC)
 	got := sessions[0]
-	if got.SessionID != "abc" || got.Dir != filepath.Join(fsRoot, "repo") {
-		t.Fatalf("session identity = (%q, %q), want (%q, %q)", got.SessionID, got.Dir, "abc", filepath.Join(fsRoot, "repo"))
+	wantFile := filepath.Join(projectDir, "abc.jsonl")
+	if got.SessionID != "abc" || got.Dir != filepath.Join(fsRoot, "repo") || got.File != wantFile {
+		t.Fatalf("session identity = (%q, %q, %q), want (%q, %q, %q)", got.SessionID, got.Dir, got.File, "abc", filepath.Join(fsRoot, "repo"), wantFile)
 	}
 	if !got.CreateTime.Equal(wantCreate) || got.FirstMsg != "first" {
 		t.Fatalf("first user = (%s, %q), want (%s, %q)", got.CreateTime, got.FirstMsg, wantCreate, "first")

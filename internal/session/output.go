@@ -11,11 +11,12 @@ const outputTimeFormat = "20060102_15:04:05"
 
 func FormatLine(s Session) string {
 	return fmt.Sprintf(
-		`dir=%s sessionId=%s createTime=%s lastTime=%s firstMsg="%s" lastMsg="%s"`,
+		`dir=%s sessionId=%s createTime=%s lastTime=%s file=%s firstMsg="%s" lastMsg="%s"`,
 		s.Dir,
 		s.SessionID,
 		formatOutputTime(s.CreateTime),
 		formatOutputTime(s.LastTime),
+		s.File,
 		CleanMessageSummary(s.FirstMsg),
 		CleanMessageSummary(s.LastMsg),
 	)

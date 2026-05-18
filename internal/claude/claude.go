@@ -58,6 +58,7 @@ func Scan(projectsRoot, fsRoot string, log Logger) ([]session.Session, error) {
 			}
 			if ok {
 				s.SessionID = sessionID
+				s.File = filePath
 				logInfo(log, "parsed sessionId=%s dir=%s createTime=%s lastTime=%s", s.SessionID, s.Dir, s.CreateTime.Format("20060102_15:04:05"), s.LastTime.Format("20060102_15:04:05"))
 				sessions = append(sessions, s)
 			} else {
