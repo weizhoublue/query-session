@@ -115,6 +115,9 @@ func scanFile(path, dir string, log Logger) (session.Session, bool, error) {
 		}
 
 		msg := messageText(entry.Message.Content)
+		if msg == "" {
+			continue
+		}
 		if result.CreateTime.IsZero() {
 			result.CreateTime = timestamp
 			result.FirstMsg = msg
