@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
-
-	"query-session/internal/session"
 )
 
 func TestScanExtractsCodexSessionFromPayloadID(t *testing.T) {
@@ -143,6 +141,30 @@ func TestScanSkipsUserMessageWithEmptyInputText(t *testing.T) {
 	}
 	if len(got) != 0 {
 		t.Fatalf("expected no sessions, got %d", len(got))
+	}
+}
+
+func TestScanSkipsInvalidJSONLines(t *testing.T) {
+	root := t.TempDir()
+	dayDir := filepath.Join(root, "2026", "05", "18")
+	if err := os.MkdirAll(dayDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	jsonl := `not valid json
+{"timestamp":"2026-05-18T01:00:00Z","payload":{"id":"sid","role":"user","content":[{"type":"input_text","text":"hello"}]}}
+`
+	if err := os.WriteFile(filepath.Join(dayDir, "x.jsonl"), []byte(jsonl), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	start := time.Date(2026, 5, 18, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 5, 18, 23, 59, 59, 0, time.UTC)
+	got, err := Scan(root, start, end, nil)
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("got %d sessions, want 1 (invalid JSON line skipped)", len(got))
 	}
 }
 
