@@ -20,6 +20,7 @@ type lineRecord struct {
 		CWD     string          `json:"cwd"`
 		Role    string          `json:"role"`
 		Content json.RawMessage `json:"content"`
+		Source  json.RawMessage `json:"source"`
 	} `json:"payload"`
 }
 
@@ -79,6 +80,12 @@ func parseFile(path string, log Logger) (session.Session, bool) {
 			}
 			continue
 		}
+		if isSubAgentSession(record.Payload.Source) {
+			if log != nil {
+				log("info", "skip codex sub-agent session "+path)
+			}
+			return session.Session{}, false
+		}
 		if out.SessionID == "" && record.Payload.ID != "" {
 			out.SessionID = record.Payload.ID
 		}
@@ -120,6 +127,23 @@ func parseFile(path string, log Logger) (session.Session, bool) {
 		return session.Session{}, false
 	}
 	return out, true
+}
+
+func isSubAgentSession(source json.RawMessage) bool {
+	if len(source) == 0 {
+		return false
+	}
+	var s struct {
+		Subagent struct {
+			ThreadSpawn struct {
+				ParentThreadID string `json:"parent_thread_id"`
+			} `json:"thread_spawn"`
+		} `json:"subagent"`
+	}
+	if err := json.Unmarshal(source, &s); err != nil {
+		return false
+	}
+	return s.Subagent.ThreadSpawn.ParentThreadID != ""
 }
 
 func extractUserContent(raw json.RawMessage) string {

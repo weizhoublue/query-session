@@ -194,3 +194,27 @@ func TestScanOnlyScansMatchingDateDirs(t *testing.T) {
 		t.Fatalf("got %d sessions, want 1 (only 5/18)", len(got))
 	}
 }
+
+func TestScanSkipsSubAgentSession(t *testing.T) {
+	root := t.TempDir()
+	dayDir := filepath.Join(root, "2026", "05", "18")
+	if err := os.MkdirAll(dayDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	jsonl := `{"timestamp":"2026-05-18T00:00:00Z","type":"session_meta","payload":{"id":"sub-id","cwd":"/repo/a","source":{"subagent":{"thread_spawn":{"parent_thread_id":"parent-id"}}}}}
+{"timestamp":"2026-05-18T01:00:00Z","payload":{"role":"user","content":[{"type":"input_text","text":"hello"}]}}
+`
+	if err := os.WriteFile(filepath.Join(dayDir, "x.jsonl"), []byte(jsonl), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	start := time.Date(2026, 5, 18, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 5, 18, 23, 59, 59, 0, time.UTC)
+	got, err := Scan(root, start, end, nil)
+	if err != nil {
+		t.Fatalf("scan: %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("expected no sessions (sub-agent skipped), got %d", len(got))
+	}
+}
