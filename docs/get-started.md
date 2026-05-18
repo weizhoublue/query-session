@@ -16,7 +16,7 @@ query-session
 
 ## 基本用法
 
-查询当前目录今天最新创建的 Claude 会话：
+查询当前目录今天的全部 Claude 会话：
 
 ```bash
 ./query-session
@@ -25,7 +25,7 @@ query-session
 等价于：
 
 ```bash
-./query-session -t claude -l=true
+./query-session -t claude -l=false
 ```
 
 ## 输出格式
@@ -56,7 +56,7 @@ YYYYMMDD_HH:mm:ss
 默认 `-p` 为空，会精确匹配当前运行命令所在目录。
 
 ```bash
-./query-session -l=false
+./query-session
 ```
 
 多行结果按 `dir` 升序排序，相同 `dir` 按 `createTime` 升序排序。
@@ -97,15 +97,15 @@ YYYYMMDD_HH:mm:ss
 
 ## 只查询最新创建的会话
 
-`-l` / `--last` 默认是 `true`。
+`-l` / `--last` 默认是 `false`。需要最新创建的一个会话时，显式开启：
 
 ```bash
-./query-session -p '.*'
+./query-session -p '.*' -l=true
 ```
 
 这会在所有过滤条件之后，按 `createTime` 选择最新创建的一个会话。
 
-显式关闭：
+显式关闭或使用默认值：
 
 ```bash
 ./query-session -p '.*' -l=false
@@ -139,4 +139,3 @@ debug 日志输出到 stderr。
 ```text
 [error] codex provider is not implemented in this phase
 ```
-

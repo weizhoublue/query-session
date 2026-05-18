@@ -33,9 +33,11 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 	fs := flag.NewFlagSet("query-session", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
 	fs.StringVar(&provider, "t", string(session.ProviderClaude), "provider")
+	fs.StringVar(&provider, "type", string(session.ProviderClaude), "provider")
 	fs.BoolVar(&debug, "d", false, "debug logging")
-	fs.BoolVar(&last, "l", true, "print latest session only")
-	fs.BoolVar(&last, "last", true, "print latest session only")
+	fs.BoolVar(&debug, "debug", false, "debug logging")
+	fs.BoolVar(&last, "l", false, "print latest session only")
+	fs.BoolVar(&last, "last", false, "print latest session only")
 	fs.StringVar(&project, "p", "", "project pattern")
 	fs.StringVar(&project, "project", "", "project pattern")
 	fs.StringVar(&startDay, "s", today, "start day in YYYYMMDD")
@@ -44,8 +46,7 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 	fs.StringVar(&endDay, "end-day", today, "end day in YYYYMMDD")
 	if err := fs.Parse(args); err != nil {
 		if err == flag.ErrHelp {
-			fs.SetOutput(stdout)
-			fs.Usage()
+			printUsage(stdout, today)
 			return 0, nil
 		}
 		return 2, err
@@ -118,4 +119,24 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 		fmt.Fprintln(stdout, session.FormatLine(s))
 	}
 	return 0, nil
+}
+
+func printUsage(w io.Writer, today string) {
+	fmt.Fprintf(w, `Usage:
+  query-session [options]
+
+Options:
+  -d / --debug
+        debug logging
+  -e / --end-day string
+        end day in YYYYMMDD (default %q)
+  -l / --last
+        print latest session only (default false)
+  -p / --project string
+        project pattern
+  -s / --start-day string
+        start day in YYYYMMDD (default %q)
+  -t / --type string
+        provider (default "claude")
+`, today, today)
 }

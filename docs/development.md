@@ -65,10 +65,16 @@ git diff --check -- cmd/query-session internal/session internal/claude docs
 
 ## 本地真实数据调试
 
-查询当前目录今天最新 Claude 会话：
+查询当前目录今天全部 Claude 会话：
 
 ```bash
 go run ./cmd/query-session
+```
+
+查询今天最新创建的 Claude 会话：
+
+```bash
+go run ./cmd/query-session -l=true
 ```
 
 查询所有项目今天的全部 Claude 会话：
@@ -162,4 +168,3 @@ Codex provider 不应混在 Claude 修复中实现。
 - `internal/codex/codex_test.go`
 - CLI 中 `-t codex` 的真实分支
 - 对应文档更新
-

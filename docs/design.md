@@ -131,6 +131,7 @@ message.role == "user"
 
 最新会话：
 
+- `-l` / `--last` 默认是 `false`。
 - `-l=true` 时，在所有过滤之后按 `CreateTime` 取最新一个。
 
 多行排序：
@@ -181,4 +182,3 @@ codex provider is not implemented in this phase
 ```
 
 Codex 的数据源、解析规则和测试应在第二阶段单独实现。
-
