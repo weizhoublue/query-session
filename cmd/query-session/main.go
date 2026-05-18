@@ -13,10 +13,14 @@ import (
 )
 
 func main() {
-	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+	code, err := run(os.Args[1:], os.Stdout, os.Stderr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[error] %v\n", err)
+	}
+	os.Exit(code)
 }
 
-func run(args []string, stdout, stderr io.Writer) int {
+func run(args []string, stdout, stderr io.Writer) (int, error) {
 	today := time.Now().Local().Format("20060102")
 
 	var provider string
@@ -27,7 +31,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	var endDay string
 
 	fs := flag.NewFlagSet("query-session", flag.ContinueOnError)
-	fs.SetOutput(stderr)
+	fs.SetOutput(io.Discard)
 	fs.StringVar(&provider, "t", string(session.ProviderClaude), "provider")
 	fs.BoolVar(&debug, "d", false, "debug logging")
 	fs.BoolVar(&last, "l", true, "print latest session only")
@@ -39,7 +43,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 	fs.StringVar(&endDay, "e", today, "end day in YYYYMMDD")
 	fs.StringVar(&endDay, "end-day", today, "end day in YYYYMMDD")
 	if err := fs.Parse(args); err != nil {
-		return 2
+		if err == flag.ErrHelp {
+			fs.SetOutput(stdout)
+			fs.Usage()
+			return 0, nil
+		}
+		return 2, err
 	}
 
 	logInfo := func(format string, args ...any) {
@@ -47,34 +56,25 @@ func run(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "[info] "+format+"\n", args...)
 		}
 	}
-	fail := func(err error) int {
-		if debug {
-			fmt.Fprintf(stderr, "[error] %v\n", err)
-		} else {
-			fmt.Fprintln(stderr, err)
-		}
-		return 1
-	}
-
 	if provider != string(session.ProviderClaude) {
 		if provider == string(session.ProviderCodex) {
-			return fail(fmt.Errorf("codex provider is not implemented in this phase"))
+			return 1, fmt.Errorf("codex provider is not implemented in this phase")
 		}
-		return fail(fmt.Errorf("unknown provider: %s", provider))
+		return 1, fmt.Errorf("unknown provider: %s", provider)
 	}
 
 	start, end, err := session.ParseDayRange(startDay, endDay, time.Local)
 	if err != nil {
-		return fail(err)
+		return 1, err
 	}
 
 	currentDir, err := os.Getwd()
 	if err != nil {
-		return fail(err)
+		return 1, err
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return fail(err)
+		return 1, err
 	}
 
 	projectsRoot := filepath.Join(home, ".claude", "projects")
@@ -83,7 +83,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		logInfo("%s", message)
 	})
 	if err != nil {
-		return fail(err)
+		return 1, err
 	}
 
 	filtered, err := session.Filter(sessions, session.FilterOptions{
@@ -93,10 +93,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 		End:            end,
 	})
 	if err != nil {
-		return fail(err)
+		return 1, err
 	}
 	if len(filtered) == 0 {
-		return 0
+		return 0, nil
 	}
 
 	if last {
@@ -104,12 +104,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 		if latest != nil {
 			fmt.Fprintln(stdout, session.FormatLine(*latest))
 		}
-		return 0
+		return 0, nil
 	}
 
 	session.SortSessions(filtered)
 	for _, s := range filtered {
 		fmt.Fprintln(stdout, session.FormatLine(s))
 	}
-	return 0
+	return 0, nil
 }
