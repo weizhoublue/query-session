@@ -70,7 +70,8 @@ func DecodeProjectDir(encoded, fsRoot string) string {
 		}
 
 		candidate := filepath.Join(current, segment)
-		if _, err := os.Stat(candidate); err != nil {
+		info, err := os.Stat(candidate)
+		if err != nil || !info.IsDir() {
 			return filepath.Join(current, rawRemainder)
 		}
 		current = candidate
@@ -89,6 +90,7 @@ func scanFile(path, dir string, log Logger) (session.Session, bool, error) {
 	var result session.Session
 	result.Dir = dir
 	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
 	lineNum := 0
 	for scanner.Scan() {
 		lineNum++
@@ -112,7 +114,8 @@ func scanFile(path, dir string, log Logger) (session.Session, bool, error) {
 		result.LastMsg = msg
 	}
 	if err := scanner.Err(); err != nil {
-		return session.Session{}, false, err
+		debug(log, "failed to scan %s: %v", path, err)
+		return session.Session{}, false, nil
 	}
 
 	return result, !result.CreateTime.IsZero(), nil

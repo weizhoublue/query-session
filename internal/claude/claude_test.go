@@ -3,6 +3,7 @@ package claude
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -35,6 +36,18 @@ func TestDecodeProjectDirPreservesRawSuffixWhenHiddenSegmentMissing(t *testing.T
 
 	got := DecodeProjectDir("Users-me--missing-project", fsRoot)
 	want := filepath.Join(fsRoot, "Users", "me", "--missing-project")
+	if got != want {
+		t.Fatalf("DecodeProjectDir() = %q, want %q", got, want)
+	}
+}
+
+func TestDecodeProjectDirStopsWhenCandidatePrefixIsFile(t *testing.T) {
+	fsRoot := t.TempDir()
+	mustMkdirAll(t, filepath.Join(fsRoot, "Users"))
+	mustWriteFile(t, filepath.Join(fsRoot, "Users", "me"), "")
+
+	got := DecodeProjectDir("Users-me-project", fsRoot)
+	want := filepath.Join(fsRoot, "Users", "me-project")
 	if got != want {
 		t.Fatalf("DecodeProjectDir() = %q, want %q", got, want)
 	}
@@ -112,6 +125,28 @@ func TestScanSkipsFilesWithoutUserMessages(t *testing.T) {
 	}
 	if len(sessions) != 0 {
 		t.Fatalf("Scan() returned %d sessions, want 0", len(sessions))
+	}
+}
+
+func TestScanParsesUserMessageLongerThanDefaultScannerBuffer(t *testing.T) {
+	projectsRoot := t.TempDir()
+	fsRoot := t.TempDir()
+	mustMkdirAll(t, filepath.Join(fsRoot, "repo"))
+
+	longMessage := strings.Repeat("x", 70*1024)
+	projectDir := filepath.Join(projectsRoot, "repo")
+	mustMkdirAll(t, projectDir)
+	mustWriteFile(t, filepath.Join(projectDir, "long.jsonl"), userLine("2026-05-18T10:00:00Z", longMessage))
+
+	sessions, err := Scan(projectsRoot, fsRoot, nil)
+	if err != nil {
+		t.Fatalf("Scan() error = %v", err)
+	}
+	if len(sessions) != 1 {
+		t.Fatalf("Scan() returned %d sessions, want 1", len(sessions))
+	}
+	if sessions[0].FirstMsg != longMessage || sessions[0].LastMsg != longMessage {
+		t.Fatalf("message lengths = (%d, %d), want %d", len(sessions[0].FirstMsg), len(sessions[0].LastMsg), len(longMessage))
 	}
 }
 
