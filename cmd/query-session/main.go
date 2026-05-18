@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"query-session/internal/claude"
+	"query-session/internal/codex"
 	"query-session/internal/session"
 )
 
@@ -60,13 +61,6 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 			fmt.Fprintf(stderr, "[%s] %s\n", level, fmt.Sprintf(format, args...))
 		}
 	}
-	if provider != string(session.ProviderClaude) {
-		if provider == string(session.ProviderCodex) {
-			return 1, fmt.Errorf("codex provider is not implemented in this phase")
-		}
-		return 1, fmt.Errorf("unknown provider: %s", provider)
-	}
-
 	start, end, err := session.ParseDayRange(startDay, endDay, time.Local)
 	if err != nil {
 		return 1, err
@@ -81,13 +75,28 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 		return 1, err
 	}
 
-	projectsRoot := filepath.Join(home, ".claude", "projects")
-	log("info", "scanning claude sessions under %s", projectsRoot)
-	sessions, err := claude.Scan(projectsRoot, "/", func(level string, message string) {
-		log(level, "%s", message)
-	})
-	if err != nil {
-		return 1, err
+	var sessions []session.Session
+	switch session.Provider(provider) {
+	case session.ProviderClaude:
+		projectsRoot := filepath.Join(home, ".claude", "projects")
+		log("info", "scanning claude sessions under %s", projectsRoot)
+		sessions, err = claude.Scan(projectsRoot, "/", func(level string, message string) {
+			log(level, "%s", message)
+		})
+		if err != nil {
+			return 1, err
+		}
+	case session.ProviderCodex:
+		root := filepath.Join(home, ".codex", "sessions")
+		log("info", "scanning codex sessions under %s", root)
+		sessions, err = codex.Scan(root, start, end, func(level string, message string) {
+			log(level, "%s", message)
+		})
+		if err != nil {
+			return 1, err
+		}
+	default:
+		return 1, fmt.Errorf("unknown provider: %s", provider)
 	}
 
 	filtered, err := session.Filter(sessions, session.FilterOptions{
