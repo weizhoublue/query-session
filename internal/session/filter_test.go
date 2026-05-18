@@ -21,6 +21,23 @@ func TestParseDayRangeRejectsStartAfterEnd(t *testing.T) {
 	}
 }
 
+func TestParseDayRangeUsesLocalCalendarDayForEnd(t *testing.T) {
+	loc, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		t.Fatalf("load location: %v", err)
+	}
+
+	_, end, err := ParseDayRange("20260308", "20260308", loc)
+	if err != nil {
+		t.Fatalf("parse range: %v", err)
+	}
+
+	want := time.Date(2026, 3, 9, 0, 0, 0, 0, loc).Add(-time.Nanosecond)
+	if !end.Equal(want) {
+		t.Fatalf("end = %s want %s", end, want)
+	}
+}
+
 func TestFilterExactCurrentDirWhenProjectEmpty(t *testing.T) {
 	sessions := []Session{
 		{Dir: "/repo/a", CreateTime: mustTime(t, "2026-05-18T01:00:00Z")},

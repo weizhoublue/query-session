@@ -42,6 +42,6 @@ func ParseDayRange(startDay, endDay string, loc *time.Location) (time.Time, time
 		return time.Time{}, time.Time{}, fmt.Errorf("start-day must not be later than end-day")
 	}
 
-	end := endDayStart.Add(24*time.Hour - time.Nanosecond)
+	end := endDayStart.AddDate(0, 0, 1).Add(-time.Nanosecond)
 	return start, end, nil
 }
