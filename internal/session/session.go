@@ -1,0 +1,47 @@
+package session
+
+import (
+	"fmt"
+	"time"
+)
+
+type Provider string
+
+const (
+	ProviderClaude Provider = "claude"
+	ProviderCodex  Provider = "codex"
+)
+
+type Session struct {
+	SessionID  string
+	Dir        string
+	CreateTime time.Time
+	LastTime   time.Time
+	FirstMsg   string
+	LastMsg    string
+}
+
+type FilterOptions struct {
+	ProjectPattern string
+	CurrentDir     string
+	Start          time.Time
+	End            time.Time
+}
+
+func ParseDayRange(startDay, endDay string, loc *time.Location) (time.Time, time.Time, error) {
+	start, err := time.ParseInLocation("20060102", startDay, loc)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid start-day %q: %w", startDay, err)
+	}
+
+	endDayStart, err := time.ParseInLocation("20060102", endDay, loc)
+	if err != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid end-day %q: %w", endDay, err)
+	}
+	if start.After(endDayStart) {
+		return time.Time{}, time.Time{}, fmt.Errorf("start-day must not be later than end-day")
+	}
+
+	end := endDayStart.Add(24*time.Hour - time.Nanosecond)
+	return start, end, nil
+}
