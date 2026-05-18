@@ -114,7 +114,7 @@ func TestScanUsesFirstAndLastUserMessages(t *testing.T) {
 	}
 }
 
-func TestScanSkipsUserToolResultsWhenChoosingLastMessage(t *testing.T) {
+func TestScanSkipsNonStringUserContentWhenChoosingLastMessage(t *testing.T) {
 	projectsRoot := t.TempDir()
 	fsRoot := t.TempDir()
 	mustMkdirAll(t, filepath.Join(fsRoot, "repo"))
@@ -124,6 +124,7 @@ func TestScanSkipsUserToolResultsWhenChoosingLastMessage(t *testing.T) {
 	mustWriteFile(t, filepath.Join(projectDir, "tool-result.jsonl"),
 		userLine("2026-05-18T10:00:00Z", "first")+
 			userLine("2026-05-18T10:10:00Z", "last human question")+
+			`{"timestamp":"2026-05-18T10:10:30Z","message":{"role":"user","content":[{"type":"text","text":"array user text"}]}}`+"\n"+
 			`{"timestamp":"2026-05-18T10:11:00Z","message":{"role":"user","content":[{"tool_use_id":"call_1","type":"tool_result","content":[{"type":"text","text":"tool output"}]}]}}`+"\n",
 	)
 
@@ -137,6 +138,26 @@ func TestScanSkipsUserToolResultsWhenChoosingLastMessage(t *testing.T) {
 	wantLast := time.Date(2026, 5, 18, 10, 10, 0, 0, time.UTC)
 	if !sessions[0].LastTime.Equal(wantLast) || sessions[0].LastMsg != "last human question" {
 		t.Fatalf("last user = (%s, %q), want (%s, %q)", sessions[0].LastTime, sessions[0].LastMsg, wantLast, "last human question")
+	}
+}
+
+func TestScanSkipsEmptyStringUserContent(t *testing.T) {
+	projectsRoot := t.TempDir()
+	fsRoot := t.TempDir()
+	mustMkdirAll(t, filepath.Join(fsRoot, "repo"))
+
+	projectDir := filepath.Join(projectsRoot, "repo")
+	mustMkdirAll(t, projectDir)
+	mustWriteFile(t, filepath.Join(projectDir, "empty-string.jsonl"),
+		`{"timestamp":"2026-05-18T10:00:00Z","message":{"role":"user","content":"  "}}`+"\n",
+	)
+
+	sessions, err := Scan(projectsRoot, fsRoot, nil)
+	if err != nil {
+		t.Fatalf("Scan() error = %v", err)
+	}
+	if len(sessions) != 0 {
+		t.Fatalf("Scan() returned %d sessions, want 0", len(sessions))
 	}
 }
 

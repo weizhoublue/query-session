@@ -114,7 +114,7 @@ func scanFile(path, dir string, log Logger) (session.Session, bool, error) {
 			continue
 		}
 
-		msg := messageText(entry.Message.Content)
+		msg := messageString(entry.Message.Content)
 		if msg == "" {
 			continue
 		}
@@ -142,31 +142,12 @@ func parseLine(line []byte, path string, lineNum int, log Logger) (jsonlEntry, b
 	return entry, true
 }
 
-func messageText(raw json.RawMessage) string {
+func messageString(raw json.RawMessage) string {
 	var s string
 	if err := json.Unmarshal(raw, &s); err == nil {
-		return s
+		return strings.TrimSpace(s)
 	}
-
-	var parts []struct {
-		Type string `json:"type"`
-		Text string `json:"text"`
-	}
-	if err := json.Unmarshal(raw, &parts); err != nil {
-		return ""
-	}
-
-	var b strings.Builder
-	for _, part := range parts {
-		if part.Text == "" {
-			continue
-		}
-		if b.Len() > 0 {
-			b.WriteByte('\n')
-		}
-		b.WriteString(part.Text)
-	}
-	return b.String()
+	return ""
 }
 
 func nextEncodedSegment(encoded string, pos int) (string, int, string) {

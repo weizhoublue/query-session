@@ -177,13 +177,13 @@ Claude JSONL 中并不是所有 `message.role=user` 都是人类输入。
 - JSON 行可解析。
 - `message.role == "user"`。
 - `timestamp` 可解析。
-- `message.content` 能提取出非空文本。
+- `message.content` 是非空字符串。
 
 当前提取文本的规则：
 
-- `message.content` 是字符串时直接使用。
-- `message.content` 是数组时，只读取数组元素顶层 `text` 字段。
-- `tool_result.content[].text` 不读取。
+- `message.content` 是字符串时，trim 后非空才使用。
+- `message.content` 是数组、对象、`null` 等其他形式时跳过。
+- `tool_result` 的 `message.content` 是数组，因此跳过。
 
 排查某个文件最后一条用户消息：
 
