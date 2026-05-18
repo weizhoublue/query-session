@@ -47,7 +47,7 @@ func CleanMessageSummary(msg string) string {
 }
 
 func formatOutputTime(t time.Time) string {
-	return t.Local().Format(outputTimeFormat)
+	return t.Format(outputTimeFormat)
 }
 
 func shouldReplaceWithSpace(r rune) bool {
