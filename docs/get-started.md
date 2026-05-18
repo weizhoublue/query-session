@@ -56,8 +56,8 @@ dir=yyy sessionId=xxxx createTime=xxxx lastTime=xxxx file=xxxx.jsonl firstMsg=".
 - `createTime`：第一条用户消息时间。
 - `lastTime`：最后一条用户消息时间。
 - `file`：完整 JSONL 会话文件路径。
-- `firstMsg`：第一条用户消息摘要，最多 10 个 Unicode 字符。
-- `lastMsg`：最后一条用户消息摘要，最多 10 个 Unicode 字符。
+- `firstMsg`：第一条用户消息摘要，最多 20 个 Unicode 字符。
+- `lastMsg`：最后一条用户消息摘要，最多 20 个 Unicode 字符。
 
 时间格式：
 

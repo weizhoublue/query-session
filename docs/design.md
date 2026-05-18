@@ -182,7 +182,7 @@ dir=yyy sessionId=xxxx createTime=xxxx lastTime=xxxx file=xxxx.jsonl firstMsg=".
 - 控制字符、空白、双引号、反斜杠替换为空格。
 - 连续空白合并。
 - 去掉首尾空白。
-- 截断到最多 10 个 Unicode 字符。
+- 截断到最多 20 个 Unicode 字符。
 
 单引号保留，因为它不是当前输出格式的分隔符。
 

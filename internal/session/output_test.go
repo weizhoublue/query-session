@@ -29,9 +29,9 @@ func TestCleanMessageSummaryKeepsSingleQuotes(t *testing.T) {
 	}
 }
 
-func TestCleanMessageSummaryTruncatesToTenUnicodeCharacters(t *testing.T) {
-	got := CleanMessageSummary("你好世界一二三四五六七")
-	want := "你好世界一二三四五六"
+func TestCleanMessageSummaryTruncatesToTwentyUnicodeCharacters(t *testing.T) {
+	got := CleanMessageSummary("一二三四五六七八九十一二三四五六七八九十一")
+	want := "一二三四五六七八九十一二三四五六七八九十"
 	if got != want {
 		t.Fatalf("got %q want %q", got, want)
 	}
@@ -50,7 +50,7 @@ func TestFormatLineUsesCompleteFixedFormat(t *testing.T) {
 	}
 
 	got := FormatLine(s)
-	want := `dir=/repo/app sessionId=session-1 createTime=20260518_09:10:11 lastTime=20260518_12:13:14 file=/claude/project/session-1.jsonl firstMsg="hello firs" lastMsg="last messa"`
+	want := `dir=/repo/app sessionId=session-1 createTime=20260518_09:10:11 lastTime=20260518_12:13:14 file=/claude/project/session-1.jsonl firstMsg="hello first message" lastMsg="last message done"`
 	if got != want {
 		t.Fatalf("got %q want %q", got, want)
 	}

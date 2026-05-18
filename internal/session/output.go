@@ -40,8 +40,8 @@ func CleanMessageSummary(msg string) string {
 
 	cleaned := strings.TrimSpace(b.String())
 	runes := []rune(cleaned)
-	if len(runes) > 10 {
-		return string(runes[:10])
+	if len(runes) > 20 {
+		return string(runes[:20])
 	}
 	return cleaned
 }
