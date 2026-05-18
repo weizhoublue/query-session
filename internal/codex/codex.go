@@ -70,6 +70,7 @@ func parseFile(path string, log Logger) (session.Session, bool) {
 	out.File = path
 
 	scanner := bufio.NewScanner(file)
+	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
 	for scanner.Scan() {
 		var record lineRecord
 		if err := json.Unmarshal(scanner.Bytes(), &record); err != nil {
@@ -104,6 +105,12 @@ func parseFile(path string, log Logger) (session.Session, bool) {
 		}
 		out.LastTime = ts
 		out.LastMsg = msg
+	}
+	if err := scanner.Err(); err != nil {
+		if log != nil {
+			log("error", "scanner error "+path+": "+err.Error())
+		}
+		return session.Session{}, false
 	}
 
 	if out.SessionID == "" {
