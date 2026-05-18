@@ -36,11 +36,20 @@ jobs:
         run: |
           GOOS=darwin GOARCH=arm64 go build -o query-session-darwin-arm64 ./cmd/query-session
 
-      - name: Upload artifacts
+      - name: Upload linux amd64
         uses: actions/upload-artifact@v4
         with:
-          name: query-session-${{ inputs.version }}
-          path: |
-            query-session-linux-amd64
-            query-session-darwin-amd64
-            query-session-darwin-arm64
+          name: query-session-linux-amd64-${{ inputs.version }}
+          path: query-session-linux-amd64
+
+      - name: Upload darwin amd64
+        uses: actions/upload-artifact@v4
+        with:
+          name: query-session-darwin-amd64-${{ inputs.version }}
+          path: query-session-darwin-amd64
+
+      - name: Upload darwin arm64
+        uses: actions/upload-artifact@v4
+        with:
+          name: query-session-darwin-arm64-${{ inputs.version }}
+          path: query-session-darwin-arm64
