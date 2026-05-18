@@ -35,6 +35,7 @@ query-session
 -e / --end-day
 -l / --last
 -p / --project
+-x / --exclude
 -s / --start-day
 -t / --type
 ```
@@ -52,7 +53,7 @@ dir=yyy sessionId=xxxx createTime=xxxx lastTime=xxxx file=xxxx.jsonl firstMsg=".
 字段含义：
 
 - `dir`：会话所属项目目录。
-- `sessionId`：Claude 会话 ID。
+- `sessionId`：会话 ID（Claude 来自文件名，Codex 优先来自 `payload.id`）。
 - `createTime`：第一条用户消息时间。
 - `lastTime`：最后一条用户消息时间。
 - `file`：完整 JSONL 会话文件路径。
@@ -142,10 +143,9 @@ debug 日志输出到 stderr。
 
 debug 日志会展示：
 
-- 扫描到的 Claude 项目目录。
-- 扫描到的 JSONL 会话文件。
+- 扫描到的项目目录和 JSONL 会话文件。
 - 成功解析出的会话。
-- 因没有人类用户消息被跳过的文件。
+- 被跳过的文件（无用户消息、子 agent 会话等）。
 - 过滤命中或过滤原因。
 - `-l=true` 时最终选择的最新会话。
 
@@ -157,6 +157,6 @@ debug 日志会展示：
 ./query-session -t codex -p '.*' -l=false
 ```
 
-Codex 会话 ID 优先取自 `payload.id`，回退到文件名。目录取自 `payload.cwd`。消息内容取 `payload.content` 数组中第一个 `input_text`。
+Codex 会话 ID 优先取自 `payload.id`，回退到文件名。目录取自 `payload.cwd`。消息内容取 `payload.content` 单成员数组中 `type="input_text"` 的 `text` 值。子 agent 会话（含 `parent_thread_id`）自动过滤。
 
 其他过滤、排序、输出格式与 Claude 一致。

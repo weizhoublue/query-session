@@ -1,14 +1,15 @@
 # 开发调试
 
-本文档记录当前 Claude 阶段的开发、测试和调试命令。
+本文档记录 query-session 的开发、测试和调试命令。
 
 ## 环境要求
 
 - Go 1.22 或更高兼容版本。
-- 本机存在 Claude 会话目录时，才能进行真实数据验证：
+- 本机存在对应 provider 会话目录时，才能进行真实数据验证：
 
 ```text
-$HOME/.claude/projects
+$HOME/.claude/projects   # Claude
+$HOME/.codex/sessions    # Codex
 ```
 
 ## 常用命令
@@ -29,6 +30,12 @@ go test ./internal/session -count=1
 
 ```bash
 go test ./internal/claude ./internal/session -count=1
+```
+
+运行 Codex provider 测试：
+
+```bash
+go test ./internal/codex ./internal/session -count=1
 ```
 
 运行 CLI 测试：
@@ -52,13 +59,13 @@ rm -f query-session
 格式化：
 
 ```bash
-gofmt -w cmd/query-session internal/session internal/claude
+gofmt -w cmd/query-session internal/session internal/claude internal/codex
 ```
 
 检查当前实现文件是否有空白错误：
 
 ```bash
-git diff --check -- cmd/query-session internal/session internal/claude docs
+git diff --check -- cmd/query-session internal/session internal/claude internal/codex docs
 ```
 
 不要直接对全仓库运行 `git diff --check` 后清理所有问题；当前 `README.md` 有用户既有改动，不能顺手修改。
@@ -193,6 +200,14 @@ rg -n '"role":"user"|"role": "user"' /path/to/session.jsonl | tail -n 10
 
 如果最后几条 `role=user` 是工具结果，应以最后一条真正的人类输入作为 `lastMsg`。
 
+排查某个 Codex 文件最后一条用户消息：
+
+```bash
+rg '"role":"user"' /path/to/session.jsonl | tail -n 10
+```
+
+Codex 中系统提示词（多成员 content 数组）和子 agent 会话会被自动跳过。
+
 `cmd/query-session`：
 
 - 解析 CLI 参数。
@@ -206,5 +221,6 @@ rg -n '"role":"user"|"role": "user"' /path/to/session.jsonl | tail -n 10
 - 读取 `*.jsonl` 会话文件。
 - 从 `payload.id` 提取会话 ID（回退到文件名）。
 - 从 `payload.cwd` 提取目录。
-- 提取 `payload.role=="user"` 且 `payload.content` 数组中第一个 `input_text` 的消息。
+- 提取 `payload.role=="user"` 且 `payload.content` 为单成员数组（`type="input_text"`）的消息。
+- 通过 `parent_thread_id` 检测过滤子 agent 会话。
 - 跳过非法 JSON 行和非法 timestamp 行。

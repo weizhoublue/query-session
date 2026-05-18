@@ -1,6 +1,6 @@
 # 设计说明
 
-本文档描述当前已实现的 Claude provider。Codex provider 是第二阶段工作，当前代码中没有实现。
+本文档描述 query-session 的 Claude 和 Codex provider 设计。
 
 ## 总体结构
 
@@ -11,6 +11,7 @@
 - `cmd/query-session`：CLI 入口，负责参数解析、错误输出、调用 provider。
 - `internal/session`：统一会话模型、日期解析、过滤、排序、输出格式。
 - `internal/claude`：Claude 会话扫描和 JSONL 解析。
+- `internal/codex`：Codex 会话扫描和 JSONL 解析。
 
 统一会话模型：
 
@@ -211,6 +212,11 @@ debug 日志覆盖：
 - `filtered`：被日期或项目条件过滤掉的会话。
 - `selected latest`：`-l=true` 时最终选中的会话。
 
+Codex 额外日志：
+
+- `scan codex day`：扫描到的 Codex 日期目录。
+- `skip codex sub-agent session`：被过滤的子 agent 会话。
+
 ## Codex Provider
 
 Codex 会话来自：
@@ -249,17 +255,26 @@ $HOME/.codex/sessions/YYYY/MM/DD/*.jsonl
 有效用户消息需同时满足：
 
 1. `payload.role == "user"`
-2. `payload.content` 是数组，且能从中取出第一个 `type="input_text"` 且 `text` 非空的成员
+2. `payload.content` 是数组且只有 1 个成员
+3. 该成员的 `type == "input_text"` 且 `text` trim 后非空
 
 解析规则：
 
 - JSON 行必须能正常解析。
 - `payload.role` 必须等于 `user`。
 - `timestamp` 必须能按 RFC3339/RFC3339Nano 解析。
-- 从 `payload.content` 数组中提取第一个 `type="input_text"` 且 `text` trim 后非空的成员。
+- `payload.content` 必须是单成员数组，取该成员的 `text` 值（trim 后非空）。
 - 第一条有效用户消息提供 `CreateTime` 和 `FirstMsg`。
 - 最后一条有效用户消息提供 `LastTime` 和 `LastMsg`。
 - 没有有效用户消息时，文件跳过。
 - 非法 JSON 行跳过。
 - 非法 timestamp 行跳过。
 - 单行最大扫描 buffer 为 10 MiB。
+
+多成员 content 数组（如系统提示词 AGENTS.md + environment_context）会被跳过，不会被误认为用户输入。
+
+## Codex 子会话过滤
+
+Codex 的子 agent 会话在 `session_meta` 记录中包含 `payload.source.subagent.thread_spawn.parent_thread_id`，指向父会话 ID。
+
+扫描时如果文件中任意一行包含非空的 `parent_thread_id`，该文件作为子会话跳过，只保留主会话。
