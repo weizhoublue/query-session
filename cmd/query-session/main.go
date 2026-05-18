@@ -91,23 +91,29 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 		CurrentDir:     currentDir,
 		Start:          start,
 		End:            end,
+		Log: func(level string, message string) {
+			log(level, "%s", message)
+		},
 	})
 	if err != nil {
 		return 1, err
 	}
 	if len(filtered) == 0 {
+		log("info", "no sessions matched filters")
 		return 0, nil
 	}
 
 	if last {
 		latest := session.LatestByCreateTime(filtered)
 		if latest != nil {
+			log("info", "selected latest sessionId=%s dir=%s createTime=%s", latest.SessionID, latest.Dir, latest.CreateTime.Local().Format("20060102_15:04:05"))
 			fmt.Fprintln(stdout, session.FormatLine(*latest))
 		}
 		return 0, nil
 	}
 
 	session.SortSessions(filtered)
+	log("info", "printing %d matched sessions", len(filtered))
 	for _, s := range filtered {
 		fmt.Fprintln(stdout, session.FormatLine(s))
 	}

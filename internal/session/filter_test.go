@@ -1,6 +1,7 @@
 package session
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -113,6 +114,44 @@ func TestSortByDirThenCreateTime(t *testing.T) {
 	for i := range want {
 		if got[i] != want[i] {
 			t.Fatalf("got %v want %v", got, want)
+		}
+	}
+}
+
+func TestFilterLogsMatchedAndFilteredSessions(t *testing.T) {
+	var logs []string
+	sessions := []Session{
+		{SessionID: "match", Dir: "/repo/a", CreateTime: mustTime(t, "2026-05-18T01:00:00Z"), LastTime: mustTime(t, "2026-05-18T01:30:00Z")},
+		{SessionID: "wrong-project", Dir: "/repo/b", CreateTime: mustTime(t, "2026-05-18T02:00:00Z")},
+		{SessionID: "wrong-date", Dir: "/repo/a", CreateTime: mustTime(t, "2026-05-19T01:00:00Z")},
+	}
+	start, end, err := ParseDayRange("20260518", "20260518", time.UTC)
+	if err != nil {
+		t.Fatalf("parse range: %v", err)
+	}
+
+	got, err := Filter(sessions, FilterOptions{
+		CurrentDir: "/repo/a",
+		Start:      start,
+		End:        end,
+		Log: func(level, message string) {
+			logs = append(logs, level+":"+message)
+		},
+	})
+	if err != nil {
+		t.Fatalf("filter: %v", err)
+	}
+	if len(got) != 1 || got[0].SessionID != "match" {
+		t.Fatalf("unexpected result: %#v", got)
+	}
+	joined := strings.Join(logs, "\n")
+	for _, want := range []string{
+		"info:matched sessionId=match",
+		"info:filtered sessionId=wrong-project reason=project",
+		"info:filtered sessionId=wrong-date reason=date",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("logs missing %q in:\n%s", want, joined)
 		}
 	}
 }

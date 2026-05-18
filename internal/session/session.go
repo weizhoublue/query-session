@@ -21,11 +21,14 @@ type Session struct {
 	LastMsg    string
 }
 
+type Logger func(level, message string)
+
 type FilterOptions struct {
 	ProjectPattern string
 	CurrentDir     string
 	Start          time.Time
 	End            time.Time
+	Log            Logger
 }
 
 func ParseDayRange(startDay, endDay string, loc *time.Location) (time.Time, time.Time, error) {

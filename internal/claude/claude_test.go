@@ -176,8 +176,46 @@ func TestScanSkipsInvalidJSONLinesWithoutFailing(t *testing.T) {
 	if sessions[0].FirstMsg != "valid" || sessions[0].LastMsg != "valid" {
 		t.Fatalf("messages = (%q, %q), want valid", sessions[0].FirstMsg, sessions[0].LastMsg)
 	}
-	if len(logs) != 2 {
-		t.Fatalf("logged %d debug messages, want 2", len(logs))
+	errorLogs := 0
+	for _, log := range logs {
+		if strings.HasPrefix(log, "error:") {
+			errorLogs++
+		}
+	}
+	if errorLogs != 2 {
+		t.Fatalf("logged %d error messages, want 2: %#v", errorLogs, logs)
+	}
+}
+
+func TestScanLogsProjectsFilesAndSessionOutcomes(t *testing.T) {
+	projectsRoot := t.TempDir()
+	fsRoot := t.TempDir()
+	mustMkdirAll(t, filepath.Join(fsRoot, "repo"))
+
+	var logs []string
+	projectDir := filepath.Join(projectsRoot, "repo")
+	mustMkdirAll(t, projectDir)
+	mustWriteFile(t, filepath.Join(projectDir, "matched.jsonl"), userLine("2026-05-18T10:00:00Z", "valid"))
+	mustWriteFile(t, filepath.Join(projectDir, "skipped.jsonl"), assistantLine("2026-05-18T11:00:00Z", "ignored"))
+
+	_, err := Scan(projectsRoot, fsRoot, func(level, message string) {
+		logs = append(logs, level+":"+message)
+	})
+	if err != nil {
+		t.Fatalf("Scan() error = %v", err)
+	}
+
+	joined := strings.Join(logs, "\n")
+	for _, want := range []string{
+		"info:scan project encoded=repo",
+		"info:scan file sessionId=matched",
+		"info:parsed sessionId=matched",
+		"info:scan file sessionId=skipped",
+		"info:skip file sessionId=skipped reason=no-user-message",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("logs missing %q in:\n%s", want, joined)
+		}
 	}
 }
 

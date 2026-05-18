@@ -36,24 +36,32 @@ func Scan(projectsRoot, fsRoot string, log Logger) ([]session.Session, error) {
 
 		projectName := projectEntry.Name()
 		projectDir := filepath.Join(projectsRoot, projectName)
+		decodedDir := DecodeProjectDir(projectName, fsRoot)
+		logInfo(log, "scan project encoded=%s dir=%s path=%s", projectName, decodedDir, projectDir)
+
 		fileEntries, err := os.ReadDir(projectDir)
 		if err != nil {
 			return nil, err
 		}
 
-		decodedDir := DecodeProjectDir(projectName, fsRoot)
 		for _, fileEntry := range fileEntries {
 			if fileEntry.IsDir() || filepath.Ext(fileEntry.Name()) != ".jsonl" {
 				continue
 			}
 
-			s, ok, err := scanFile(filepath.Join(projectDir, fileEntry.Name()), decodedDir, log)
+			filePath := filepath.Join(projectDir, fileEntry.Name())
+			sessionID := strings.TrimSuffix(fileEntry.Name(), ".jsonl")
+			logInfo(log, "scan file sessionId=%s file=%s dir=%s", sessionID, filePath, decodedDir)
+			s, ok, err := scanFile(filePath, decodedDir, log)
 			if err != nil {
 				return nil, err
 			}
 			if ok {
-				s.SessionID = strings.TrimSuffix(fileEntry.Name(), ".jsonl")
+				s.SessionID = sessionID
+				logInfo(log, "parsed sessionId=%s dir=%s createTime=%s lastTime=%s", s.SessionID, s.Dir, s.CreateTime.Format("20060102_15:04:05"), s.LastTime.Format("20060102_15:04:05"))
 				sessions = append(sessions, s)
+			} else {
+				logInfo(log, "skip file sessionId=%s reason=no-user-message file=%s", sessionID, filePath)
 			}
 		}
 	}
@@ -185,5 +193,11 @@ func nextEncodedSegment(encoded string, pos int) (string, int, string) {
 func logParseError(log Logger, format string, args ...any) {
 	if log != nil {
 		log("error", fmt.Sprintf(format, args...))
+	}
+}
+
+func logInfo(log Logger, format string, args ...any) {
+	if log != nil {
+		log("info", fmt.Sprintf(format, args...))
 	}
 }
