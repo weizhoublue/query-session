@@ -50,5 +50,5 @@ func formatOutputTime(t time.Time) string {
 }
 
 func shouldReplaceWithSpace(r rune) bool {
-	return unicode.IsSpace(r) || unicode.IsControl(r) || r == '"' || r == '\'' || r == '\\'
+	return unicode.IsSpace(r) || unicode.IsControl(r) || r == '"' || r == '\\'
 }

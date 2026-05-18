@@ -21,6 +21,14 @@ func TestCleanMessageSummaryCollapsesWhitespace(t *testing.T) {
 	}
 }
 
+func TestCleanMessageSummaryKeepsSingleQuotes(t *testing.T) {
+	got := CleanMessageSummary("don't stop")
+	want := "don't stop"
+	if got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+}
+
 func TestCleanMessageSummaryTruncatesToTenUnicodeCharacters(t *testing.T) {
 	got := CleanMessageSummary("你好世界一二三四五六七")
 	want := "你好世界一二三四五六"
