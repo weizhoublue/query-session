@@ -95,13 +95,13 @@ func TestScanSkipsCodexFileWithoutUserMessages(t *testing.T) {
 	}
 }
 
-func TestScanExtractsFirstInputTextFromContentArray(t *testing.T) {
+func TestScanSkipsMultiMemberContentArray(t *testing.T) {
 	root := t.TempDir()
 	dayDir := filepath.Join(root, "2026", "05", "18")
 	if err := os.MkdirAll(dayDir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	jsonl := `{"timestamp":"2026-05-18T01:00:00Z","payload":{"id":"sid","role":"user","content":[{"type":"tool_result","text":"tool output"},{"type":"input_text","text":"real user input"},{"type":"input_text","text":"second input"}]}}
+	jsonl := `{"timestamp":"2026-05-18T01:00:00Z","payload":{"id":"sid","role":"user","content":[{"type":"input_text","text":"AGENTS.md instructions"},{"type":"input_text","text":"environment context"}]}}
 `
 	if err := os.WriteFile(filepath.Join(dayDir, "x.jsonl"), []byte(jsonl), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
@@ -113,11 +113,8 @@ func TestScanExtractsFirstInputTextFromContentArray(t *testing.T) {
 	if err != nil {
 		t.Fatalf("scan: %v", err)
 	}
-	if len(got) != 1 {
-		t.Fatalf("got %d sessions", len(got))
-	}
-	if got[0].FirstMsg != "real user input" {
-		t.Fatalf("firstMsg = %q, want %q", got[0].FirstMsg, "real user input")
+	if len(got) != 0 {
+		t.Fatalf("expected no sessions (multi-member content skipped), got %d", len(got))
 	}
 }
 

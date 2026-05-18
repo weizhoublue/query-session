@@ -130,10 +130,12 @@ func extractUserContent(raw json.RawMessage) string {
 	if err := json.Unmarshal(raw, &parts); err != nil {
 		return ""
 	}
-	for _, p := range parts {
-		if p.Type == "input_text" && strings.TrimSpace(p.Text) != "" {
-			return p.Text
-		}
+	if len(parts) != 1 {
+		return ""
+	}
+	p := parts[0]
+	if p.Type == "input_text" && strings.TrimSpace(p.Text) != "" {
+		return p.Text
 	}
 	return ""
 }
