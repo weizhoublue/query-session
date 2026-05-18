@@ -27,6 +27,7 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 	var debug bool
 	var last bool
 	var project string
+	var exclude string
 	var startDay string
 	var endDay string
 
@@ -38,8 +39,10 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 	fs.BoolVar(&debug, "debug", false, "debug logging")
 	fs.BoolVar(&last, "l", false, "print latest session only")
 	fs.BoolVar(&last, "last", false, "print latest session only")
-	fs.StringVar(&project, "p", "", "project pattern")
-	fs.StringVar(&project, "project", "", "project pattern")
+	fs.StringVar(&project, "p", "", "project pattern (case-insensitive)")
+	fs.StringVar(&project, "project", "", "project pattern (case-insensitive)")
+	fs.StringVar(&exclude, "x", "", "exclude project pattern (case-insensitive)")
+	fs.StringVar(&exclude, "exclude", "", "exclude project pattern (case-insensitive)")
 	fs.StringVar(&startDay, "s", today, "start day in YYYYMMDD")
 	fs.StringVar(&startDay, "start-day", today, "start day in YYYYMMDD")
 	fs.StringVar(&endDay, "e", today, "end day in YYYYMMDD")
@@ -89,6 +92,7 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 
 	filtered, err := session.Filter(sessions, session.FilterOptions{
 		ProjectPattern: project,
+		ExcludePattern: exclude,
 		CurrentDir:     currentDir,
 		Start:          start,
 		End:            end,
@@ -132,8 +136,10 @@ Options:
         end day in YYYYMMDD (default %q)
   -l / --last
         print latest session only (default false)
+  -x / --exclude string
+        exclude project pattern (case-insensitive, higher priority than -p)
   -p / --project string
-        project pattern
+        project pattern (case-insensitive)
   -s / --start-day string
         start day in YYYYMMDD (default %q)
   -t / --type string

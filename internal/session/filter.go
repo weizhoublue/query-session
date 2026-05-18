@@ -16,10 +16,22 @@ func Filter(sessions []Session, opts FilterOptions) ([]Session, error) {
 		}
 	}
 
+	var excludeRE *regexp.Regexp
+	if opts.ExcludePattern != "" {
+		excludeRE, err = regexp.Compile("(?i)" + opts.ExcludePattern)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	filtered := make([]Session, 0, len(sessions))
 	for _, s := range sessions {
 		if s.CreateTime.Before(opts.Start) || s.CreateTime.After(opts.End) {
 			logFilter(opts.Log, "filtered sessionId=%s reason=date dir=%s createTime=%s start=%s end=%s", s.SessionID, s.Dir, s.CreateTime.Format(outputTimeFormat), opts.Start.Format(outputTimeFormat), opts.End.Format(outputTimeFormat))
+			continue
+		}
+		if excludeRE != nil && excludeRE.MatchString(s.Dir) {
+			logFilter(opts.Log, "filtered sessionId=%s reason=exclude dir=%s pattern=%s", s.SessionID, s.Dir, opts.ExcludePattern)
 			continue
 		}
 		if projectRE == nil {

@@ -26,6 +26,7 @@ type Logger func(level, message string)
 
 type FilterOptions struct {
 	ProjectPattern string
+	ExcludePattern string
 	CurrentDir     string
 	Start          time.Time
 	End            time.Time

@@ -88,6 +88,33 @@ func TestFilterProjectRegexCaseInsensitive(t *testing.T) {
 	}
 }
 
+func TestFilterExcludeTakesPrecedence(t *testing.T) {
+	sessions := []Session{
+		{Dir: "/repo/foo", CreateTime: mustTime(t, "2026-05-18T01:00:00Z")},
+		{Dir: "/repo/foobar", CreateTime: mustTime(t, "2026-05-18T02:00:00Z")},
+		{Dir: "/repo/bar", CreateTime: mustTime(t, "2026-05-18T03:00:00Z")},
+	}
+
+	start, end, err := ParseDayRange("20260518", "20260518", time.UTC)
+	if err != nil {
+		t.Fatalf("parse range: %v", err)
+	}
+
+	got, err := Filter(sessions, FilterOptions{
+		ProjectPattern: "foo",
+		ExcludePattern: "bar",
+		CurrentDir:     "/not-used",
+		Start:          start,
+		End:            end,
+	})
+	if err != nil {
+		t.Fatalf("filter: %v", err)
+	}
+	if len(got) != 1 || got[0].Dir != "/repo/foo" {
+		t.Fatalf("unexpected result: %#v", got)
+	}
+}
+
 func TestLatestUsesCreateTime(t *testing.T) {
 	sessions := []Session{
 		{SessionID: "old", CreateTime: mustTime(t, "2026-05-18T01:00:00Z")},
