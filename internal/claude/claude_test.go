@@ -270,6 +270,34 @@ func TestScanLogsProjectsFilesAndSessionOutcomes(t *testing.T) {
 	}
 }
 
+func TestMessageStringPlainString(t *testing.T) {
+	got := messageString([]byte(`"hello world"`))
+	if got != "hello world" {
+		t.Fatalf("got %q, want %q", got, "hello world")
+	}
+}
+
+func TestMessageStringListContentReturnsEmpty(t *testing.T) {
+	got := messageString([]byte(`[{"type":"text","text":"hello"}]`))
+	if got != "" {
+		t.Fatalf("got %q, want empty (list content not supported)", got)
+	}
+}
+
+func TestMessageStringNullReturnsEmpty(t *testing.T) {
+	got := messageString([]byte(`null`))
+	if got != "" {
+		t.Fatalf("got %q, want empty", got)
+	}
+}
+
+func TestMessageStringEmptyArrayReturnsEmpty(t *testing.T) {
+	got := messageString([]byte(`[]`))
+	if got != "" {
+		t.Fatalf("got %q, want empty", got)
+	}
+}
+
 func mustMkdirAll(t *testing.T, path string) {
 	t.Helper()
 	if err := os.MkdirAll(path, 0o755); err != nil {
