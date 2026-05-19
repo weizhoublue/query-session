@@ -55,3 +55,22 @@ func TestFormatLineUsesCompleteFixedFormat(t *testing.T) {
 		t.Fatalf("got %q want %q", got, want)
 	}
 }
+
+func TestFormatLineLastMsgEmptyWhenSameAsFirst(t *testing.T) {
+	loc := time.Local
+	s := Session{
+		Dir:        "/repo/app",
+		SessionID:  "solo",
+		File:       "/path/solo.jsonl",
+		CreateTime: time.Date(2026, 5, 19, 6, 3, 37, 0, loc),
+		LastTime:   time.Date(2026, 5, 19, 6, 3, 37, 0, loc),
+		FirstMsg:   "only question",
+		LastMsg:    "only question",
+	}
+
+	got := FormatLine(s)
+	want := `dir=/repo/app sessionId=solo createTime=20260519_06:03:37 lastTime=20260519_06:03:37 file=/path/solo.jsonl firstMsg="only question" lastMsg=""`
+	if got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+}
