@@ -38,7 +38,7 @@ func TestCleanMessageSummaryTruncatesToTwentyUnicodeCharacters(t *testing.T) {
 }
 
 func TestFormatLineUsesCompleteFixedFormat(t *testing.T) {
-	loc := time.FixedZone("test", 8*60*60)
+	loc := time.Local
 	s := Session{
 		Dir:        "/repo/app",
 		SessionID:  "session-1",

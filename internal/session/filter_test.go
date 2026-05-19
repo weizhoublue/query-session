@@ -22,6 +22,65 @@ func TestParseDayRangeRejectsStartAfterEnd(t *testing.T) {
 	}
 }
 
+func TestParseDayRangeSameDayUTC(t *testing.T) {
+	start, end, err := ParseDayRange("20260518", "20260518", time.UTC)
+	if err != nil {
+		t.Fatalf("parse range: %v", err)
+	}
+	wantStart := time.Date(2026, 5, 18, 0, 0, 0, 0, time.UTC)
+	wantEnd := time.Date(2026, 5, 18, 23, 59, 59, 999999999, time.UTC)
+	if !start.Equal(wantStart) || !end.Equal(wantEnd) {
+		t.Fatalf("start=%s end=%s, want %s %s", start, end, wantStart, wantEnd)
+	}
+}
+
+func TestParseDayRangeMultiDayRange(t *testing.T) {
+	start, end, err := ParseDayRange("20260518", "20260520", time.UTC)
+	if err != nil {
+		t.Fatalf("parse range: %v", err)
+	}
+	wantStart := time.Date(2026, 5, 18, 0, 0, 0, 0, time.UTC)
+	wantEnd := time.Date(2026, 5, 20, 23, 59, 59, 999999999, time.UTC)
+	if !start.Equal(wantStart) || !end.Equal(wantEnd) {
+		t.Fatalf("start=%s end=%s, want %s %s", start, end, wantStart, wantEnd)
+	}
+}
+
+func TestFilterDateBoundaryInclusion(t *testing.T) {
+	start, end, err := ParseDayRange("20260518", "20260518", time.UTC)
+	if err != nil {
+		t.Fatalf("parse range: %v", err)
+	}
+
+	sessions := []Session{
+		{SessionID: "at-start", Dir: "/a", CreateTime: start},
+		{SessionID: "at-end", Dir: "/a", CreateTime: end},
+		{SessionID: "before", Dir: "/a", CreateTime: start.Add(-time.Nanosecond)},
+		{SessionID: "after", Dir: "/a", CreateTime: end.Add(time.Nanosecond)},
+	}
+
+	got, err := Filter(sessions, FilterOptions{
+		CurrentDir: "/a",
+		Start:      start,
+		End:        end,
+	})
+	if err != nil {
+		t.Fatalf("filter: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("got %d sessions, want 2 (at-start and at-end included)", len(got))
+	}
+	ids := make(map[string]bool)
+	for _, s := range got {
+		ids[s.SessionID] = true
+	}
+	for _, want := range []string{"at-start", "at-end"} {
+		if !ids[want] {
+			t.Fatalf("missing session %q", want)
+		}
+	}
+}
+
 func TestParseDayRangeUsesLocalCalendarDayForEnd(t *testing.T) {
 	loc, err := time.LoadLocation("America/New_York")
 	if err != nil {

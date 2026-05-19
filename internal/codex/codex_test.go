@@ -4,8 +4,60 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"encoding/json"
 	"time"
 )
+
+func TestExtractUserContentSingleInputText(t *testing.T) {
+	raw, _ := json.Marshal([]map[string]string{{"type": "input_text", "text": "hello world"}})
+	got := extractUserContent(raw)
+	if got != "hello world" {
+		t.Fatalf("got %q, want %q", got, "hello world")
+	}
+}
+
+func TestExtractUserContentMultiplePartsReturnsEmpty(t *testing.T) {
+	raw, _ := json.Marshal([]map[string]string{
+		{"type": "input_text", "text": "first"},
+		{"type": "input_text", "text": "second"},
+	})
+	got := extractUserContent(raw)
+	if got != "" {
+		t.Fatalf("got %q, want empty (multi-part not supported)", got)
+	}
+}
+
+func TestExtractUserContentWrongTypeReturnsEmpty(t *testing.T) {
+	raw, _ := json.Marshal([]map[string]string{{"type": "text", "text": "hello"}})
+	got := extractUserContent(raw)
+	if got != "" {
+		t.Fatalf("got %q, want empty (type not input_text)", got)
+	}
+}
+
+func TestExtractUserContentEmptyTextReturnsEmpty(t *testing.T) {
+	raw, _ := json.Marshal([]map[string]string{{"type": "input_text", "text": "  "}})
+	got := extractUserContent(raw)
+	if got != "" {
+		t.Fatalf("got %q, want empty", got)
+	}
+}
+
+func TestExtractUserContentPlainStringReturnsEmpty(t *testing.T) {
+	raw := json.RawMessage(`"plain string"`)
+	got := extractUserContent(raw)
+	if got != "" {
+		t.Fatalf("got %q, want empty (string not supported)", got)
+	}
+}
+
+func TestExtractUserContentEmptyArrayReturnsEmpty(t *testing.T) {
+	raw := json.RawMessage(`[]`)
+	got := extractUserContent(raw)
+	if got != "" {
+		t.Fatalf("got %q, want empty", got)
+	}
+}
 
 func TestScanExtractsCodexSessionFromPayloadID(t *testing.T) {
 	root := t.TempDir()
@@ -192,6 +244,18 @@ func TestScanOnlyScansMatchingDateDirs(t *testing.T) {
 	}
 	if len(got) != 1 {
 		t.Fatalf("got %d sessions, want 1 (only 5/18)", len(got))
+	}
+}
+
+func TestDayStartPreservesTimezone(t *testing.T) {
+	loc, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		t.Fatalf("load location: %v", err)
+	}
+	got := dayStart(time.Date(2026, 5, 18, 14, 30, 0, 0, loc))
+	want := time.Date(2026, 5, 18, 0, 0, 0, 0, loc)
+	if !got.Equal(want) {
+		t.Fatalf("dayStart = %s, want %s", got, want)
 	}
 }
 
