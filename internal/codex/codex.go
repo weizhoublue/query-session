@@ -106,6 +106,7 @@ func parseFile(path string, log Logger) (session.Session, bool) {
 		if msg == "" {
 			continue
 		}
+		out.UserMsgAmount++
 		if out.FirstMsg == "" {
 			out.CreateTime = ts
 			out.FirstMsg = msg

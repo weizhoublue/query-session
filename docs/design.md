@@ -23,6 +23,7 @@ CreateTime
 LastTime
 FirstMsg
 LastMsg
+UserMsgAmount
 ```
 
 `CreateTime` 和 `LastTime` 都来自用户消息时间戳，不使用文件修改时间。
@@ -173,7 +174,7 @@ message.role == "user"
 输出一行一个会话：
 
 ```text
-dir=yyy sessionId=xxxx createTime=xxxx lastTime=xxxx file=xxxx.jsonl firstMsg="..." lastMsg="..."
+dir=yyy sessionId=xxxx createTime=xxxx lastTime=xxxx file=xxxx.jsonl userMsgAmount=N firstMsg="..." lastMsg="..."
 ```
 
 `file` 是完整 JSONL 会话文件路径。
@@ -183,9 +184,13 @@ dir=yyy sessionId=xxxx createTime=xxxx lastTime=xxxx file=xxxx.jsonl firstMsg=".
 - 控制字符、空白、双引号、反斜杠替换为空格。
 - 连续空白合并。
 - 去掉首尾空白。
-- 截断到最多 20 个 Unicode 字符。
+- 截断到最多 20 个 Unicode 字符，超出时追加 `...[N]`（N 为清洗后完整长度）。
 
 单引号保留，因为它不是当前输出格式的分隔符。
+
+`UserMsgAmount` 是 session 中有效用户消息的条数，用 `messageString()` / `extractUserContent()` 提取出非空字符串的 user-role 行数。
+
+当 `FirstMsg == LastMsg`（session 中只有一条有效用户消息）时，`lastMsg` 输出为空字符串，避免冗余。
 
 ## 错误和日志
 

@@ -15,12 +15,13 @@ func FormatLine(s Session) string {
 		lastMsg = ""
 	}
 	return fmt.Sprintf(
-		`dir=%s sessionId=%s createTime=%s lastTime=%s file=%s firstMsg="%s" lastMsg="%s"`,
+		`dir=%s sessionId=%s createTime=%s lastTime=%s file=%s userMsgAmount=%d firstMsg="%s" lastMsg="%s"`,
 		s.Dir,
 		s.SessionID,
 		formatOutputTime(s.CreateTime),
 		formatOutputTime(s.LastTime),
 		s.File,
+		s.UserMsgAmount,
 		CleanMessageSummary(s.FirstMsg),
 		CleanMessageSummary(lastMsg),
 	)
@@ -45,7 +46,7 @@ func CleanMessageSummary(msg string) string {
 	cleaned := strings.TrimSpace(b.String())
 	runes := []rune(cleaned)
 	if len(runes) > 20 {
-		return string(runes[:20])
+		return fmt.Sprintf("%s...[%d]", string(runes[:20]), len(runes))
 	}
 	return cleaned
 }

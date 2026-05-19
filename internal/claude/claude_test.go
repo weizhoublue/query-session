@@ -112,6 +112,9 @@ func TestScanUsesFirstAndLastUserMessages(t *testing.T) {
 	if !got.LastTime.Equal(wantLast) || got.LastMsg != "last" {
 		t.Fatalf("last user = (%s, %q), want (%s, %q)", got.LastTime, got.LastMsg, wantLast, "last")
 	}
+	if got.UserMsgAmount != 2 {
+		t.Fatalf("UserMsgAmount = %d, want 2", got.UserMsgAmount)
+	}
 }
 
 func TestScanSkipsNonStringUserContentWhenChoosingLastMessage(t *testing.T) {
