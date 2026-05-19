@@ -159,7 +159,7 @@ func extractUserContent(raw json.RawMessage) string {
 	}
 	p := parts[0]
 	if p.Type == "input_text" && strings.TrimSpace(p.Text) != "" {
-		return p.Text
+		return strings.TrimSpace(p.Text)
 	}
 	return ""
 }

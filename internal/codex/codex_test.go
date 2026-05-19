@@ -9,7 +9,7 @@ import (
 )
 
 func TestExtractUserContentSingleInputText(t *testing.T) {
-	raw, _ := json.Marshal([]map[string]string{{"type": "input_text", "text": "hello world"}})
+	raw, _ := json.Marshal([]map[string]string{{"type": "input_text", "text": " hello world "}})
 	got := extractUserContent(raw)
 	if got != "hello world" {
 		t.Fatalf("got %q, want %q", got, "hello world")
