@@ -13,13 +13,14 @@ const (
 )
 
 type Session struct {
-	SessionID  string
-	Dir        string
-	File       string
-	CreateTime time.Time
-	LastTime   time.Time
-	FirstMsg   string
-	LastMsg    string
+	SessionID     string
+	Dir           string
+	File          string
+	CreateTime    time.Time
+	LastTime      time.Time
+	FirstMsg      string
+	LastMsg       string
+	UserMsgAmount int
 }
 
 type Logger func(level, message string)

@@ -93,6 +93,9 @@ func TestScanExtractsCodexSessionFromPayloadID(t *testing.T) {
 	if got[0].FirstMsg != "first question" || got[0].LastMsg != "last question" {
 		t.Fatalf("messages = %q / %q", got[0].FirstMsg, got[0].LastMsg)
 	}
+	if got[0].UserMsgAmount != 2 {
+		t.Fatalf("UserMsgAmount = %d, want 2", got[0].UserMsgAmount)
+	}
 	if got[0].File != filePath {
 		t.Fatalf("file = %q, want %q", got[0].File, filePath)
 	}
