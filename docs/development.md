@@ -1,56 +1,49 @@
 # 开发调试
 
-本文档记录 query-session 的开发、测试和调试命令。
+本文档记录 query-session 的开发、测试和本地调试命令。
 
 ## 环境要求
 
-- Go 1.22 或更高兼容版本。
-- 本机存在对应 provider 会话目录时，才能进行真实数据验证：
+- Go 1.26+（见 `go.mod`）。
+- 本机存在对应 provider 数据目录时，才能做真实数据验证：
 
 ```text
-$HOME/.claude/projects   # Claude
-$HOME/.codex/sessions    # Codex
+$HOME/.claude/projects              # Claude
+$HOME/.codex/sessions               # Codex
+$HOME/.cursor/chats                 # Cursor
+```
+
+Cursor provider 额外依赖：
+
+```text
+modernc.org/sqlite   # 纯 Go SQLite，无 CGO
 ```
 
 ## 常用命令
 
-运行全部测试：
+全部测试：
 
 ```bash
 go test ./... -count=1
 ```
 
-运行 session 包测试：
+按包测试：
 
 ```bash
 go test ./internal/session -count=1
-```
-
-运行 Claude provider 测试：
-
-```bash
-go test ./internal/claude ./internal/session -count=1
-```
-
-运行 Codex provider 测试：
-
-```bash
-go test ./internal/codex ./internal/session -count=1
-```
-
-运行 CLI 测试：
-
-```bash
+go test ./internal/claude -count=1
+go test ./internal/codex -count=1
+go test ./internal/cursor -count=1
 go test ./cmd/query-session -count=1
 ```
 
 构建：
 
 ```bash
-go build ./cmd/query-session
+go build -o query-session ./cmd/query-session
 ```
 
-清理本地构建产物：
+清理产物：
 
 ```bash
 rm -f query-session
@@ -59,168 +52,96 @@ rm -f query-session
 格式化：
 
 ```bash
-gofmt -w cmd/query-session internal/session internal/claude internal/codex
+gofmt -w cmd/query-session internal/session internal/claude internal/codex internal/cursor
 ```
 
-检查当前实现文件是否有空白错误：
+仅检查自己改动的路径：
 
 ```bash
-git diff --check -- cmd/query-session internal/session internal/claude internal/codex docs
+git diff --check -- cmd/query-session internal/session internal/claude internal/codex internal/cursor docs
 ```
 
-不要直接对全仓库运行 `git diff --check` 后清理所有问题；当前 `README.md` 有用户既有改动，不能顺手修改。
+## 包职责
+
+| 包 | 职责 |
+|----|------|
+| `internal/session` | 日期范围、`-p`/`-x` 过滤、`-l` 最新、排序、`FormatLine`、消息清洗 |
+| `internal/claude` | 扫描 `~/.claude/projects`、目录解码、JSONL 用户消息 |
+| `internal/codex` | 按日期扫描 `~/.codex/sessions`、JSONL、`parent_thread_id` 过滤 |
+| `internal/cursor` | 扫描 `chats/*/*/store.db`、meta/blobs、Protobuf workspace、`<user_query>` 提取 |
+| `cmd/query-session` | CLI、provider 分支、usage |
 
 ## 本地真实数据调试
 
-查询当前目录今天全部 Claude 会话：
+### Claude
 
 ```bash
 go run ./cmd/query-session
-```
-
-查询今天最新创建的 Claude 会话：
-
-```bash
 go run ./cmd/query-session -l=true
-```
-
-查询所有项目今天的全部 Claude 会话：
-
-```bash
 go run ./cmd/query-session -p '.*' -l=false
+go run ./cmd/query-session -s 20260518 -e 20260518 -p '.*' -d=true
 ```
 
-查询指定日期：
+排查无输出时看 debug：`skip file reason=no-user-message`、`filtered reason=project|date`。
+
+Claude 有效用户消息：`message.role=user` 且 `message.content` 为**字符串**。`tool_result` 的 content 为数组，会跳过。
 
 ```bash
-go run ./cmd/query-session -s 20260518 -e 20260518 -p '.*' -l=false
+rg -n '"role":"user"' /path/to/session.jsonl | tail -n 10
 ```
 
-开启 debug：
-
-```bash
-go run ./cmd/query-session -d=true -p '.*' -l=false
-```
-
-debug 输出应该能看到扫描和过滤链路：
-
-```text
-[info] scan project encoded=... dir=... path=...
-[info] scan file sessionId=... file=... dir=...
-[info] parsed sessionId=... dir=... createTime=... lastTime=...
-[info] matched sessionId=... dir=... createTime=... lastTime=...
-```
-
-如果某个会话没有输出，优先看：
-
-- 是否出现 `scan file`，确认 JSONL 文件被扫描。
-- 是否出现 `skip file reason=no-user-message`，确认没有可用的人类用户消息。
-- 是否出现 `filtered reason=project`，确认项目目录过滤不匹配。
-- 是否出现 `filtered reason=date`，确认创建时间不在日期范围内。
-
-验证错误输出：
-
-```bash
-go run ./cmd/query-session -t nope
-```
-
-期望 stderr：
-
-```text
-[error] unknown provider: nope
-```
-
-验证 Codex：
+### Codex
 
 ```bash
 go run ./cmd/query-session -t codex -p '.*' -l=false
+go run ./cmd/query-session -t codex -d=true -p '.*'
 ```
 
-debug 模式：
+有效消息：`payload.role=user` 且 `content` 为单元素 `input_text`。多成员 content 与子 agent（`parent_thread_id`）会跳过。
+
+### Cursor
 
 ```bash
-go run ./cmd/query-session -t codex -p '.*' -l=false -d=true
+go run ./cmd/query-session -t cursor
+go run ./cmd/query-session -t cursor -p 'query-session' -s 20260501 -e 20261231
+go run ./cmd/query-session -t cursor -d=true -p '.*'
 ```
+
+debug 关注：
+
+- `scan cursor store path=...` — 是否扫到 `store.db`
+- `parsed sessionId=...` — 解析成功
+- `skip ... reason=no-user-query` — 无 `<user_query>` 真实输入
+- `skip ... reason=invalid-meta` — meta 损坏
+
+手动查看 meta（示例）：
+
+```bash
+sqlite3 ~/.cursor/chats/{chatId}/{sessionId}/store.db \
+  "SELECT value FROM meta WHERE key='0';" | xxd -r -p | jq .
+```
+
+单元测试使用临时目录合成 `store.db`，不依赖本机 `~/.cursor`（见 `internal/cursor/cursor_test.go`）。
 
 ## 推荐开发步骤
 
-新增或修改行为时按以下顺序：
-
-1. 先写或更新单元测试。
-2. 运行目标包测试，确认测试能覆盖目标行为。
+1. 先写或更新 `internal/<provider>` 单元测试（Cursor 用 `createTestStoreDB` / `encodeProtobufStringField`）。
+2. `go test ./internal/<provider> -v -count=1`
 3. 实现最小代码。
-4. 运行目标包测试。
-5. 运行 `go test ./... -count=1`。
-6. 运行 `go build ./cmd/query-session`。
-7. 删除构建产物 `rm -f query-session`。
-8. 用 `git diff --check -- <你改过的路径>` 检查自己的改动。
-9. 使用 `git commit -s -S -m "One-line English summary"` 提交。
+4. `go test ./... -count=1`
+5. `go build ./cmd/query-session`
+6. 更新 `docs/design.md`、`docs/get-started.md`（若行为或 CLI 有变）。
+7. 按需提交（用户明确要求时再 `git commit`）。
 
-## 当前包职责
-
-`internal/session`：
-
-- 日期范围解析。
-- 项目过滤。
-- latest 选择。
-- 排序。
-- 输出格式。
-- 消息摘要清洗。
-
-`internal/claude`：
-
-- 扫描 `$HOME/.claude/projects`。
-- 解码 Claude 项目目录。
-- 读取一级 JSONL 会话文件。
-- 提取第一条和最后一条用户消息。
-- 跳过 Claude 记录中的 `tool_result` 用户角色记录，避免工具返回内容覆盖 `LastMsg`。
-
-## Claude 用户消息调试
-
-Claude JSONL 中并不是所有 `message.role=user` 都是人类输入。
-
-有效的人类用户消息需要同时满足：
-
-- JSON 行可解析。
-- `message.role == "user"`。
-- `timestamp` 可解析。
-- `message.content` 是非空字符串。
-
-当前提取文本的规则：
-
-- `message.content` 是字符串时，trim 后非空才使用。
-- `message.content` 是数组、对象、`null` 等其他形式时跳过。
-- `tool_result` 的 `message.content` 是数组，因此跳过。
-
-排查某个文件最后一条用户消息：
+## 错误输出验证
 
 ```bash
-rg -n '"role":"user"|"role": "user"' /path/to/session.jsonl | tail -n 10
+go run ./cmd/query-session -t nope
+# 期望 stderr: [error] unknown provider: nope
 ```
 
-如果最后几条 `role=user` 是工具结果，应以最后一条真正的人类输入作为 `lastMsg`。
+## 相关文档
 
-排查某个 Codex 文件最后一条用户消息：
-
-```bash
-rg '"role":"user"' /path/to/session.jsonl | tail -n 10
-```
-
-Codex 中系统提示词（多成员 content 数组）和子 agent 会话会被自动跳过。
-
-`cmd/query-session`：
-
-- 解析 CLI 参数。
-- 选择 provider。
-- 调用过滤和输出逻辑。
-- 统一错误输出。
-
-`internal/codex`：
-
-- 按日期范围遍历 `$HOME/.codex/sessions/YYYY/MM/DD/`。
-- 读取 `*.jsonl` 会话文件。
-- 从 `payload.id` 提取会话 ID（回退到文件名）。
-- 从 `payload.cwd` 提取目录。
-- 提取 `payload.role=="user"` 且 `payload.content` 为单成员数组（`type="input_text"`）的消息。
-- 通过 `parent_thread_id` 检测过滤子 agent 会话。
-- 跳过非法 JSON 行和非法 timestamp 行。
+- [design.md](./design.md) — 三 provider 设计细节
+- [get-started.md](./get-started.md) — 使用说明
+- [test.md](./test.md) — 命令示例

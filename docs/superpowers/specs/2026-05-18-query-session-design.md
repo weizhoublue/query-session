@@ -1,4 +1,6 @@
-# query-session 设计
+# query-session 设计（Claude + Codex 初版）
+
+> **说明：** 本文档为 2026-05-18 初版 spec。当前实现已增加 **Cursor** provider，请以 [design.md](../../design.md) 与 [2026-05-20-cursor-provider-design.md](./2026-05-20-cursor-provider-design.md) 为准。
 
 ## 目标
 

@@ -1,179 +1,151 @@
 # 快速开始
 
-`query-session` 用于查询本机 Claude、Codex 和 Cursor 会话信息。
+`query-session` 用于查询本机 **Claude Desktop**、**Codex**、**Cursor Agent** 的会话 ID 与摘要信息，输出统一的一行格式，便于人工检索。
+
+## Provider 一览
+
+| `-t` 值 | 数据位置 | 会话文件 |
+|---------|----------|----------|
+| `claude`（默认） | `$HOME/.claude/projects` | `*.jsonl` |
+| `codex` | `$HOME/.codex/sessions/YYYY/MM/DD` | `*.jsonl` |
+| `cursor` | `$HOME/.cursor/chats/{chatId}/{sessionId}` | `store.db` |
+
+详细设计见 [design.md](./design.md)。
 
 ## 构建
 
 ```bash
-go build ./cmd/query-session
+go build -o query-session ./cmd/query-session
 ```
 
-构建后会在当前目录生成：
+## CLI 参数
 
 ```text
-query-session
+-t / --type      provider: claude | codex | cursor（默认 claude）
+-d / --debug     debug 日志 → stderr
+-l / --last      只输出 createTime 最新的一条（默认 false）
+-p / --project   项目目录正则（空 = 仅当前工作目录）
+-x / --exclude   排除目录正则（优先于 -p）
+-s / --start-day 开始日期 YYYYMMDD（默认今天）
+-e / --end-day   结束日期 YYYYMMDD（默认今天）
 ```
-
-## 基本用法
-
-查询当前目录今天的全部 Claude 会话：
-
-```bash
-./query-session
-```
-
-等价于：
-
-```bash
-./query-session -t claude -l=false
-```
-
-当前 CLI 参数：
-
-```text
--d / --debug
--e / --end-day
--l / --last
--p / --project
--x / --exclude
--s / --start-day
--t / --type
-```
-
-`-l` / `--last` 默认是 `false`，所以不带 `-l` 时会输出所有匹配会话。
 
 ## 输出格式
 
-每个会话输出一行：
-
 ```text
-dir=yyy sessionId=xxxx createTime=xxxx lastTime=xxxx file=xxxx.jsonl userMsgAmount=N firstMsg="..." lastMsg="..."
+dir=yyy sessionId=xxxx createTime=xxxx lastTime=xxxx file=xxxx userMsgAmount=N firstMsg="..." lastMsg="..."
 ```
 
-字段含义：
+| 字段 | 含义 |
+|------|------|
+| `dir` | 工作区 / 项目目录 |
+| `sessionId` | 会话 ID |
+| `createTime` | 会话创建时间（见下表） |
+| `lastTime` | 最后活动时间（见下表） |
+| `file` | 会话存储文件完整路径 |
+| `userMsgAmount` | 有效用户消息条数 |
+| `firstMsg` / `lastMsg` | 首/末条用户消息摘要（最多 20 字，超出 `...[N]`）；仅一条时 `lastMsg` 为空 |
 
-- `dir`：会话所属项目目录。
-- `sessionId`：会话 ID（Claude 来自文件名，Codex 优先来自 `payload.id`）。
-- `createTime`：第一条用户消息时间。
-- `lastTime`：最后一条用户消息时间。
-- `file`：完整会话文件路径（Claude/Codex 为 `.jsonl`，Cursor 为 `store.db`）。
-- `userMsgAmount`：session 中有效用户消息条数。
-- `firstMsg`：第一条用户消息摘要，最多 20 个 Unicode 字符，超出时追加 `...[N]`（N 为完整长度）。
-- `lastMsg`：最后一条用户消息摘要，最多 20 个 Unicode 字符，超出时追加 `...[N]`。当 session 只有一条有效用户消息时，`lastMsg` 为空。
+时间格式：`YYYYMMDD_HH:mm:ss`（本地时区）。
 
-时间格式：
+### 各 provider 的时间与 sessionId
 
-```text
-YYYYMMDD_HH:mm:ss
-```
+| | Claude / Codex | Cursor |
+|--|----------------|--------|
+| `createTime` | 首条有效用户消息时间 | `meta.createdAt`（会话创建） |
+| `lastTime` | 末条有效用户消息时间 | `store.db` 文件 mtime |
+| `sessionId` | 文件名 / `payload.id` | `meta.agentId` 或目录名 |
+| 日期过滤 | 按 `createTime` | 按 `createTime` |
 
-## 查询当前目录全部会话
+---
 
-默认 `-p` 为空，会精确匹配当前运行命令所在目录。
+## Claude（默认）
+
+当前目录、今天全部会话：
 
 ```bash
 ./query-session
+# 等价
+./query-session -t claude -l=false
 ```
 
-多行结果按 `dir` 升序排序，相同 `dir` 按 `createTime` 升序排序。
-
-## 查询指定项目
-
-`-p` 或 `--project` 使用大小写不敏感正则匹配 `dir`。
+常用：
 
 ```bash
-./query-session -p 'query-session' -l=false
+./query-session -l=true                              # 今天最新一条（当前目录）
+./query-session -p '.*' -l=false                     # 今天所有项目
+./query-session -p 'query-session' -s 20260520 -e 20260520
+./query-session -p 'git' -x 'aiagent' -s 20260513 -e 20260514   # -x 排除优先
+./query-session -d=true -p '.*'                        # debug
 ```
 
-查询所有项目：
+只统计 `message.role=user` 且 `message.content` 为字符串的人类输入；`tool_result` 等数组 content 会跳过。
+
+---
+
+## Codex
 
 ```bash
-./query-session -p '.*' -l=false
-```
-
-## 查询指定日期
-
-`-s` / `--start-day` 和 `-e` / `--end-day` 使用 `YYYYMMDD`。
-
-查询某一天：
-
-```bash
-./query-session -s 20260518 -e 20260518 -p '.*' -l=false
-```
-
-查询日期范围：
-
-```bash
-./query-session -s 20260517 -e 20260518 -p '.*' -l=false
-```
-
-日期按本地时区解释，起止日期都包含边界当天。
-
-如果 `-s` 晚于 `-e`，命令会报错。
-
-## 只查询最新创建的会话
-
-`-l` / `--last` 默认是 `false`。需要最新创建的一个会话时，显式开启：
-
-```bash
-./query-session -p '.*' -l=true
-```
-
-这会在所有过滤条件之后，按 `createTime` 选择最新创建的一个会话。
-
-显式关闭或使用默认值：
-
-```bash
-./query-session -p '.*' -l=false
-```
-
-## 开启 debug 日志
-
-debug 日志输出到 stderr。
-
-```bash
-./query-session -d=true -p '.*' -l=false
-```
-
-日志格式：
-
-```text
-[info] message
-[error] message
-```
-
-debug 日志会展示：
-
-- 扫描到的项目目录和 JSONL 会话文件。
-- 成功解析出的会话。
-- 被跳过的文件（无用户消息、子 agent 会话等）。
-- 过滤命中或过滤原因。
-- `-l=true` 时最终选择的最新会话。
-
-## 查询 Codex 会话
-
-使用 `-t codex` 切换到 Codex provider：
-
-```bash
+./query-session -t codex
 ./query-session -t codex -p '.*' -l=false
+./query-session -t codex -p '.*' -l=true
+./query-session -t codex -s 20260518 -e 20260518 -p '.*'
 ```
 
-Codex 会话 ID 优先取自 `payload.id`，回退到文件名。目录取自 `payload.cwd`。消息内容取 `payload.content` 单成员数组中 `type="input_text"` 的 `text` 值。子 agent 会话（含 `parent_thread_id`）自动过滤。
+- `sessionId`：优先 `payload.id`，否则文件名。
+- `dir`：`payload.cwd`。
+- 用户消息：`payload.content` 单成员且 `type=input_text`。
+- 含 `parent_thread_id` 的子 agent 会话自动跳过。
 
-其他过滤、排序、输出格式与 Claude 一致。
+---
 
-## 查询 Cursor 会话
-
-使用 `-t cursor` 切换到 Cursor provider：
+## Cursor
 
 ```bash
 ./query-session -t cursor
+./query-session -t cursor -l=true
+./query-session -t cursor -p '.*' -l=false
+./query-session -t cursor -p 'query-session' -s 20260520 -e 20260520
+./query-session -t cursor -d=true -p '.*' -s 20260101 -e 20261231
 ```
 
-扫描 `$HOME/.cursor/chats/*/*/store.db`。`createTime` 来自会话创建时间（`meta.createdAt`），`lastTime` 来自 `store.db` 修改时间。只统计含 `<user_query>` 的真实用户输入，自动排除启动时的上下文注入消息。
+说明：
 
-指定项目与日期：
+- 扫描 `~/.cursor/chats/*/*/store.db`（每个 Agent 会话一个库）。
+- 只计含 `<user_query>` 的真实用户输入；启动时的 `<user_info>` / rules 注入（`requestContextCompleteness`）不计入。
+- `dir` 优先从 Protobuf workspace（`file://`）解析，否则从注入消息里的 `Workspace Path:` 读取。
+- 无效或损坏的 `store.db` 在 debug 下会 `skip ... invalid-meta`，不影响其他会话。
+
+---
+
+## 过滤与排序（通用）
+
+- **项目**：`-p` 为空 → 仅 `dir == 当前目录`；`-p '.*'` → 全部项目。
+- **排除**：`-x` 匹配到的 `dir` 一律排除。
+- **日期**：`-s`/`-e` 按 `createTime` 含边界过滤；`-s` 晚于 `-e` 报错。
+- **排序**：先 `dir` 升序，再 `createTime` 升序。
+- **最新**：`-l=true` 在过滤后取 `createTime` 最大的一条。
+
+## Debug 日志
 
 ```bash
-./query-session -t cursor -p "query-session" -s 20260520 -e 20260520
+./query-session -d=true -p '.*'
 ```
+
+stderr 示例：
+
+```text
+[info] scanning claude sessions under /Users/.../.claude/projects
+[info] scan project encoded=... dir=...
+[info] matched sessionId=... dir=... createTime=... lastTime=...
+
+[info] scanning cursor sessions under /Users/.../.cursor/chats
+[info] scan cursor store path=.../store.db
+[info] parsed sessionId=... dir=... createTime=...
+[info] skip cursor store path=... reason=no-user-query
+```
+
+## 更多
+
+- 命令速查：[test.md](./test.md)
+- 开发与测试：[development.md](./development.md)
