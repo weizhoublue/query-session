@@ -1,6 +1,6 @@
 # 快速开始
 
-`query-session` 用于查询本机 Claude 和 Codex 会话信息。
+`query-session` 用于查询本机 Claude、Codex 和 Cursor 会话信息。
 
 ## 构建
 
@@ -56,7 +56,7 @@ dir=yyy sessionId=xxxx createTime=xxxx lastTime=xxxx file=xxxx.jsonl userMsgAmou
 - `sessionId`：会话 ID（Claude 来自文件名，Codex 优先来自 `payload.id`）。
 - `createTime`：第一条用户消息时间。
 - `lastTime`：最后一条用户消息时间。
-- `file`：完整 JSONL 会话文件路径。
+- `file`：完整会话文件路径（Claude/Codex 为 `.jsonl`，Cursor 为 `store.db`）。
 - `userMsgAmount`：session 中有效用户消息条数。
 - `firstMsg`：第一条用户消息摘要，最多 20 个 Unicode 字符，超出时追加 `...[N]`（N 为完整长度）。
 - `lastMsg`：最后一条用户消息摘要，最多 20 个 Unicode 字符，超出时追加 `...[N]`。当 session 只有一条有效用户消息时，`lastMsg` 为空。
@@ -161,3 +161,19 @@ debug 日志会展示：
 Codex 会话 ID 优先取自 `payload.id`，回退到文件名。目录取自 `payload.cwd`。消息内容取 `payload.content` 单成员数组中 `type="input_text"` 的 `text` 值。子 agent 会话（含 `parent_thread_id`）自动过滤。
 
 其他过滤、排序、输出格式与 Claude 一致。
+
+## 查询 Cursor 会话
+
+使用 `-t cursor` 切换到 Cursor provider：
+
+```bash
+./query-session -t cursor
+```
+
+扫描 `$HOME/.cursor/chats/*/*/store.db`。`createTime` 来自会话创建时间（`meta.createdAt`），`lastTime` 来自 `store.db` 修改时间。只统计含 `<user_query>` 的真实用户输入，自动排除启动时的上下文注入消息。
+
+指定项目与日期：
+
+```bash
+./query-session -t cursor -p "query-session" -s 20260520 -e 20260520
+```

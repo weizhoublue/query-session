@@ -1,6 +1,6 @@
 # 设计说明
 
-本文档描述 query-session 的 Claude 和 Codex provider 设计。
+本文档描述 query-session 的 Claude、Codex 和 Cursor provider 设计。
 
 ## 总体结构
 
@@ -12,6 +12,7 @@
 - `internal/session`：统一会话模型、日期解析、过滤、排序、输出格式。
 - `internal/claude`：Claude 会话扫描和 JSONL 解析。
 - `internal/codex`：Codex 会话扫描和 JSONL 解析。
+- `internal/cursor`：Cursor Agent 会话扫描和 `store.db` 解析。
 
 统一会话模型：
 
@@ -283,3 +284,58 @@ $HOME/.codex/sessions/YYYY/MM/DD/*.jsonl
 Codex 的子 agent 会话在 `session_meta` 记录中包含 `payload.source.subagent.thread_spawn.parent_thread_id`，指向父会话 ID。
 
 扫描时如果文件中任意一行包含非空的 `parent_thread_id`，该文件作为子会话跳过，只保留主会话。
+
+## Cursor Provider
+
+Cursor Agent 会话来自：
+
+```text
+$HOME/.cursor/chats
+```
+
+目录结构：
+
+```text
+$HOME/.cursor/chats/{chatId}/{sessionId}/store.db
+```
+
+规则：
+
+- 只扫描 `chats/*/*/store.db`（两层子目录），忽略 Chat 根目录下空的 `store.db`。
+- 会话 ID 来自 `meta` 表 `key='0'` 的 hex JSON 字段 `agentId`，与目录名 `{sessionId}` 一致。
+- `File` 字段为 `store.db` 完整路径。
+
+### meta 表
+
+- `key = '0'` 的 `value` 为 hex 编码 JSON。
+- `createdAt` 为毫秒时间戳，映射到 `CreateTime`（本地时区）。
+- `latestRootBlobId` 为对话树根 blob id，用于解析 workspace。
+
+### 时间字段
+
+- `CreateTime`：`meta.createdAt`。
+- `LastTime`：`store.db` 文件修改时间（`mtime`）。
+- 日期过滤 `-s` / `-e` 基于 `CreateTime`（与 Claude 相同）。
+
+### Workspace（Dir）
+
+1. 读取 `latestRootBlobId` 对应 blob，解析 Protobuf **field 9** 的 `file://` URI。
+2. 回退：在 `role=user` 的 JSON blob 中匹配 `Workspace Path: ...`（常见于 `<user_info>` 注入）。
+
+### 用户消息
+
+有效用户消息须同时满足：
+
+1. `role == "user"`。
+2. 非上下文注入：`providerOptions.cursor.requestContextCompleteness` 为空或 `null`。
+3. 内容包含 `<user_query>`。
+
+- 从 `<user_query>...</user_query>` 提取正文作为 `FirstMsg` / `LastMsg`。
+- `UserMsgAmount` 为有效用户消息条数。
+- 无有效用户消息时跳过该 `store.db`。
+
+### Cursor debug 日志
+
+- `scan cursor store path=...`
+- `parsed sessionId=...`
+- `skip cursor store path=... reason=no-user-query` 或 `invalid-meta`

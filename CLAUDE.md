@@ -20,12 +20,15 @@ go test -v ./internal/session/... -run TestFilter
 
 # 调试模式运行
 go run ./cmd/query-session -d -p "istio"
+go run ./cmd/query-session -t cursor -p ".*"
 ```
 
 ## 架构
 
 - `cmd/query-session/main.go` - CLI 入口，参数解析与过滤器
 - `internal/claude/claude.go` - Claude Desktop 会话扫描实现，解析 `~/.claude/projects/` 目录
+- `internal/codex/codex.go` - Codex 会话扫描，解析 `~/.codex/sessions/` 目录
+- `internal/cursor/cursor.go` - Cursor Agent 会话扫描，解析 `~/.cursor/chats/*/*/store.db`
 - `internal/session/session.go` - 会话数据结构与日期范围过滤逻辑
 
 核心流程：Scan → Filter → Sort/Format

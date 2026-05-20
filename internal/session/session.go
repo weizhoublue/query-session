@@ -10,6 +10,7 @@ type Provider string
 const (
 	ProviderClaude Provider = "claude"
 	ProviderCodex  Provider = "codex"
+	ProviderCursor Provider = "cursor"
 )
 
 type Session struct {
