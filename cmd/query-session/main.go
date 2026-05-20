@@ -10,6 +10,7 @@ import (
 
 	"query-session/internal/claude"
 	"query-session/internal/codex"
+	"query-session/internal/cursor"
 	"query-session/internal/session"
 )
 
@@ -95,6 +96,15 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 		if err != nil {
 			return 1, err
 		}
+	case session.ProviderCursor:
+		chatsRoot := filepath.Join(home, ".cursor", "chats")
+		log("info", "scanning cursor sessions under %s", chatsRoot)
+		sessions, err = cursor.Scan(chatsRoot, func(level string, message string) {
+			log(level, "%s", message)
+		})
+		if err != nil {
+			return 1, err
+		}
 	default:
 		return 1, fmt.Errorf("unknown provider: %s", provider)
 	}
@@ -152,7 +162,7 @@ Options:
   -s / --start-day string
         start day in YYYYMMDD (default %q)
   -t / --type string
-        provider: claude or codex (default "claude")
+        provider: claude, codex, or cursor (default "claude")
 
 claude example:
 	# 当前目录今天的所有 session
@@ -176,5 +186,9 @@ claude example:
 codex example:
 	# 输出当前目录今天的所有 session
 	query-session -t codex
+
+cursor example:
+	# 当前工作区今天创建的 cursor agent 会话
+	query-session -t cursor
 `, today, today)
 }
