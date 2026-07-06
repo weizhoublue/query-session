@@ -241,3 +241,43 @@ func TestFilterLogsMatchedAndFilteredSessions(t *testing.T) {
 		}
 	}
 }
+
+func TestParseLastDaysOneDayIsToday(t *testing.T) {
+	now := time.Now().UTC()
+	start, end, err := ParseLastDays(1, time.UTC)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	todayEnd := todayStart.AddDate(0, 0, 1).Add(-time.Nanosecond)
+	if !start.Equal(todayStart) {
+		t.Fatalf("start = %s, want %s", start, todayStart)
+	}
+	if !end.Equal(todayEnd) {
+		t.Fatalf("end = %s, want %s", end, todayEnd)
+	}
+}
+
+func TestParseLastDaysThreeDays(t *testing.T) {
+	now := time.Now().UTC()
+	start, end, err := ParseLastDays(3, time.UTC)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	wantStart := todayStart.AddDate(0, 0, -2)
+	wantEnd := todayStart.AddDate(0, 0, 1).Add(-time.Nanosecond)
+	if !start.Equal(wantStart) {
+		t.Fatalf("start = %s, want %s", start, wantStart)
+	}
+	if !end.Equal(wantEnd) {
+		t.Fatalf("end = %s, want %s", end, wantEnd)
+	}
+}
+
+func TestParseLastDaysRejectsZero(t *testing.T) {
+	_, _, err := ParseLastDays(0, time.UTC)
+	if err == nil {
+		t.Fatal("expected error for n=0")
+	}
+}
