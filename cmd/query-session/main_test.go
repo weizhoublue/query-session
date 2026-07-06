@@ -56,8 +56,10 @@ func TestRunHelpCombinesShortAndLongFlags(t *testing.T) {
 	for _, want := range []string{
 		"-d / --debug",
 		"-e / --end-day string",
-		"-l / --last",
-		"print latest session only (default false)",
+		"-l / --last int",
+		"cover past N days including today",
+		"-n / --number int",
+		"print top N sessions by createTime",
 		"-p / --project string",
 		"-s / --start-day string",
 		"-t / --type string",
@@ -79,5 +81,27 @@ func TestRunLongTypeFlag(t *testing.T) {
 	}
 	if err == nil || err.Error() != "unknown provider: nope" {
 		t.Fatalf("err = %v, want unknown provider", err)
+	}
+}
+
+func TestRunLastConflictsWithStartDay(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code, err := run([]string{"-l", "3", "-s", "20260101"}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("code = %d, want 1", code)
+	}
+	if err == nil || !strings.Contains(err.Error(), "--last conflicts with") {
+		t.Fatalf("err = %v, want conflict error", err)
+	}
+}
+
+func TestRunNegativeNumberReturnsError(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code, err := run([]string{"-n", "-1"}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("code = %d, want 1", code)
+	}
+	if err == nil || !strings.Contains(err.Error(), "--number must be") {
+		t.Fatalf("err = %v, want number error", err)
 	}
 }

@@ -27,7 +27,8 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 
 	var provider string
 	var debug bool
-	var last bool
+	var number int
+	var lastDays int
 	var project string
 	var exclude string
 	var startDay string
@@ -39,8 +40,10 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 	fs.StringVar(&provider, "type", string(session.ProviderClaude), "provider")
 	fs.BoolVar(&debug, "d", false, "debug logging")
 	fs.BoolVar(&debug, "debug", false, "debug logging")
-	fs.BoolVar(&last, "l", false, "print latest session only")
-	fs.BoolVar(&last, "last", false, "print latest session only")
+	fs.IntVar(&number, "n", 0, "print top N sessions by createTime")
+	fs.IntVar(&number, "number", 0, "print top N sessions by createTime")
+	fs.IntVar(&lastDays, "l", 0, "cover past N days including today")
+	fs.IntVar(&lastDays, "last", 0, "cover past N days including today")
 	fs.StringVar(&project, "p", "", "project pattern (case-insensitive)")
 	fs.StringVar(&project, "project", "", "project pattern (case-insensitive)")
 	fs.StringVar(&exclude, "x", "", "exclude project pattern (case-insensitive)")
@@ -57,21 +60,46 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 		return 2, err
 	}
 
+	if number < 0 {
+		return 1, fmt.Errorf("--number must be >= 1, got %d", number)
+	}
+	if lastDays < 0 {
+		return 1, fmt.Errorf("--last must be >= 1, got %d", lastDays)
+	}
+	if lastDays > 0 {
+		var conflicting string
+		fs.Visit(func(f *flag.Flag) {
+			if f.Name == "s" || f.Name == "start-day" || f.Name == "e" || f.Name == "end-day" {
+				conflicting = f.Name
+			}
+		})
+		if conflicting != "" {
+			return 1, fmt.Errorf("--last conflicts with --%s; use one or the other", conflicting)
+		}
+	}
+
+	var err error
+	var currentDir, home string
 	log := func(level, format string, args ...any) {
 		if debug {
 			fmt.Fprintf(stderr, "[%s] %s\n", level, fmt.Sprintf(format, args...))
 		}
 	}
-	start, end, err := session.ParseDayRange(startDay, endDay, time.Local)
+	var start, end time.Time
+	if lastDays > 0 {
+		start, end, err = session.ParseLastDays(lastDays, time.Local)
+	} else {
+		start, end, err = session.ParseDayRange(startDay, endDay, time.Local)
+	}
 	if err != nil {
 		return 1, err
 	}
 
-	currentDir, err := os.Getwd()
+	currentDir, err = os.Getwd()
 	if err != nil {
 		return 1, err
 	}
-	home, err := os.UserHomeDir()
+	home, err = os.UserHomeDir()
 	if err != nil {
 		return 1, err
 	}
@@ -127,11 +155,11 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 		return 0, nil
 	}
 
-	if last {
-		latest := session.LatestByCreateTime(filtered)
-		if latest != nil {
-			log("info", "selected latest sessionId=%s dir=%s createTime=%s", latest.SessionID, latest.Dir, latest.CreateTime.Local().Format("20060102_15:04:05"))
-			fmt.Fprintln(stdout, session.FormatLine(*latest))
+	if number > 0 {
+		result := session.TopNByCreateTime(filtered, number)
+		log("info", "printing top %d of %d matched sessions", len(result), len(filtered))
+		for _, s := range result {
+			fmt.Fprintln(stdout, session.FormatLine(s))
 		}
 		return 0, nil
 	}
@@ -153,8 +181,10 @@ Options:
         debug logging
   -e / --end-day string
         end day in YYYYMMDD (default %q)
-  -l / --last
-        print latest session only (default false)
+  -l / --last int
+        cover past N days including today (mutually exclusive with -s/-e)
+  -n / --number int
+        print top N sessions by createTime (most recent first)
   -x / --exclude string
         exclude project pattern (case-insensitive, higher priority than -p)
   -p / --project string
@@ -168,14 +198,14 @@ claude example:
 	# 当前目录今天的所有 session
 	query-session
 
-	# 当前目录今天的最后一个创建的 session
-	query-session -l
+	# 当前目录今天 createTime 最新的 1 条
+	query-session -n 1
+
+	# 过去 7 天中 createTime 最新的 3 条（所有项目）
+	query-session -n 3 -l 7 -p ".*"
 
 	# 今天的 所有项目的 session ，  -p 是大小写忽略的正则匹配
 	query-session -p ".*"
-
-	# 输出今天的 所有项目的 session 的 全局最后一个创建
-	query-session -p ".*" -l
 
 	# 输出指定 时间内 指定 正则项目的  
 	query-session -p "aiAgent"  -s 20260513 -e 20260514
