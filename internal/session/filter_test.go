@@ -281,3 +281,49 @@ func TestParseLastDaysRejectsZero(t *testing.T) {
 		t.Fatal("expected error for n=0")
 	}
 }
+
+func TestTopNByCreateTimeReturnsTopTwo(t *testing.T) {
+	sessions := []Session{
+		{SessionID: "old", CreateTime: mustTime(t, "2026-05-18T01:00:00Z")},
+		{SessionID: "newest", CreateTime: mustTime(t, "2026-05-18T03:00:00Z")},
+		{SessionID: "mid", CreateTime: mustTime(t, "2026-05-18T02:00:00Z")},
+	}
+	orig := make([]Session, len(sessions))
+	copy(orig, sessions)
+
+	got := TopNByCreateTime(sessions, 2)
+
+	if len(got) != 2 {
+		t.Fatalf("got %d sessions, want 2", len(got))
+	}
+	if got[0].SessionID != "newest" || got[1].SessionID != "mid" {
+		t.Fatalf("unexpected order: %v %v", got[0].SessionID, got[1].SessionID)
+	}
+	// 确认原切片未被修改
+	for i, s := range sessions {
+		if s.SessionID != orig[i].SessionID {
+			t.Fatalf("input slice mutated at index %d", i)
+		}
+	}
+}
+
+func TestTopNByCreateTimeZeroReturnsAll(t *testing.T) {
+	sessions := []Session{
+		{SessionID: "a", CreateTime: mustTime(t, "2026-05-18T01:00:00Z")},
+		{SessionID: "b", CreateTime: mustTime(t, "2026-05-18T02:00:00Z")},
+	}
+	got := TopNByCreateTime(sessions, 0)
+	if len(got) != 2 {
+		t.Fatalf("got %d, want 2", len(got))
+	}
+}
+
+func TestTopNByCreateTimeNLargerThanLen(t *testing.T) {
+	sessions := []Session{
+		{SessionID: "a", CreateTime: mustTime(t, "2026-05-18T01:00:00Z")},
+	}
+	got := TopNByCreateTime(sessions, 99)
+	if len(got) != 1 {
+		t.Fatalf("got %d, want 1", len(got))
+	}
+}
