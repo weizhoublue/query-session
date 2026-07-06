@@ -105,3 +105,14 @@ func TestRunNegativeNumberReturnsError(t *testing.T) {
 		t.Fatalf("err = %v, want number error", err)
 	}
 }
+
+func TestRunNegativeLastReturnsError(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code, err := run([]string{"-l", "-1"}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("code = %d, want 1", code)
+	}
+	if err == nil || !strings.Contains(err.Error(), "--last must be") {
+		t.Fatalf("err = %v, want last error", err)
+	}
+}
