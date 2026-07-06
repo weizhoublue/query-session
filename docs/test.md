@@ -9,13 +9,13 @@ go build ./cmd/query-session
 ./query-session
 
 # 输出 当前目录  claude 今天的最后一个创建的 session
-./query-session -l
+./query-session -n 1
 
 # 输出 claude 今天的 所有项目的 session ，  -p 是大小写忽略的正则匹配
 ./query-session -p ".*"
 
 # 输出 claude 今天的 所有项目的 session 的 全局最后一个创建
-./query-session -p ".*" -l
+./query-session -p ".*" -n 1
 
 # 输出 claude 指定 时间内 指定 正则项目的  
 ./query-session -p "aiAgent"  -s 20260513 -e 20260514
@@ -37,13 +37,13 @@ go build ./cmd/query-session
 ./query-session -t codex
 
 # 输出 当前目录    今天的最后一个创建的 session
-./query-session -t codex -l
+./query-session -t codex -n 1
 
 # 输出   今天的 所有项目的 session ，  -p 是大小写忽略的正则匹配
 ./query-session -t codex -p ".*"
 
 # 输出  今天的 所有项目的 session 的 全局最后一个创建
-./query-session -t codex -p ".*" -l
+./query-session -t codex -p ".*" -n 1
 
 # 输出   指定 时间内 指定 正则项目的  
 ./query-session -t codex -p ".*"  -s 20260513 -e 20260514
@@ -67,13 +67,13 @@ go build ./cmd/query-session
 ./query-session -t cursor
 
 # 输出 当前目录    今天的最后一个创建的 session
-./query-session -t cursor -l
+./query-session -t cursor -n 1
 
 # 输出   今天的 所有项目的 session ，  -p 是大小写忽略的正则匹配
 ./query-session -t cursor -p ".*"
 
 # 输出  今天的 所有项目的 session 的 全局最后一个创建
-./query-session -t cursor -p ".*" -l
+./query-session -t cursor -p ".*" -n 1
 
 # 输出   指定 时间内 指定 正则项目的  
 ./query-session -t cursor -p ".*"  -s 20260519 -e 20260520

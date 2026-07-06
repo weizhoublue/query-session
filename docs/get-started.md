@@ -23,7 +23,8 @@ go build -o query-session ./cmd/query-session
 ```text
 -t / --type      provider: claude | codex | cursor（默认 claude）
 -d / --debug     debug 日志 → stderr
--l / --last      只输出 createTime 最新的一条（默认 false）
+-n / --number N  按 createTime 降序输出前 N 条（默认 0 = 全部）
+-l / --last N    日期窗口：过去 N 天含今天（与 -s/-e 互斥）
 -p / --project   项目目录正则（空 = 仅当前工作目录）
 -x / --exclude   排除目录正则（优先于 -p）
 -s / --start-day 开始日期 YYYYMMDD（默认今天）
@@ -66,14 +67,15 @@ dir=yyy sessionId=xxxx createTime=xxxx lastTime=xxxx file=xxxx userMsgAmount=N f
 ```bash
 ./query-session
 # 等价
-./query-session -t claude -l=false
+./query-session -t claude
 ```
 
 常用：
 
 ```bash
-./query-session -l=true                              # 今天最新一条（当前目录）
-./query-session -p '.*' -l=false                     # 今天所有项目
+./query-session -n 1                                 # 今天最新一条（当前目录）
+./query-session -p '.*'                              # 今天所有项目
+./query-session -n 3 -l 7 -p '.*'                    # 过去 7 天 createTime 最新的 3 条
 ./query-session -p 'query-session' -s 20260520 -e 20260520
 ./query-session -p 'git' -x 'aiagent' -s 20260513 -e 20260514   # -x 排除优先
 ./query-session -d=true -p '.*'                        # debug
@@ -87,8 +89,8 @@ dir=yyy sessionId=xxxx createTime=xxxx lastTime=xxxx file=xxxx userMsgAmount=N f
 
 ```bash
 ./query-session -t codex
-./query-session -t codex -p '.*' -l=false
-./query-session -t codex -p '.*' -l=true
+./query-session -t codex -p '.*'
+./query-session -t codex -p '.*' -n 1
 ./query-session -t codex -s 20260518 -e 20260518 -p '.*'
 ```
 
@@ -103,8 +105,8 @@ dir=yyy sessionId=xxxx createTime=xxxx lastTime=xxxx file=xxxx userMsgAmount=N f
 
 ```bash
 ./query-session -t cursor
-./query-session -t cursor -l=true
-./query-session -t cursor -p '.*' -l=false
+./query-session -t cursor -n 1
+./query-session -t cursor -p '.*'
 ./query-session -t cursor -p 'query-session' -s 20260520 -e 20260520
 ./query-session -t cursor -d=true -p '.*' -s 20260101 -e 20261231
 ```
@@ -122,9 +124,9 @@ dir=yyy sessionId=xxxx createTime=xxxx lastTime=xxxx file=xxxx userMsgAmount=N f
 
 - **项目**：`-p` 为空 → 仅 `dir == 当前目录`；`-p '.*'` → 全部项目。
 - **排除**：`-x` 匹配到的 `dir` 一律排除。
-- **日期**：`-s`/`-e` 按 `createTime` 含边界过滤；`-s` 晚于 `-e` 报错。
-- **排序**：先 `dir` 升序，再 `createTime` 升序。
-- **最新**：`-l=true` 在过滤后取 `createTime` 最大的一条。
+- **日期**：默认今天；`-l N` 覆盖过去 N 天（含今天，与 `-s`/`-e` 互斥）；`-s`/`-e` 按 `createTime` 含边界过滤；`-s` 晚于 `-e` 报错。
+- **排序**：未指定 `-n` 时，先 `dir` 升序，再 `createTime` 升序。
+- **条数**：`-n N` 在过滤后按 `createTime` 降序取前 N 条；可与 `-l` 组合（如 `-n 3 -l 7`）。
 
 ## Debug 日志
 
