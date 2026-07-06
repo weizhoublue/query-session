@@ -194,31 +194,34 @@ Options:
   -t / --type string
         provider: claude, codex, or cursor (default "claude")
 
-claude example:
-	# 当前目录今天的所有 session
+当前目录:
+	# 当前目录 今天 claude 所有 session
 	query-session
 
-	# 当前目录今天 createTime 最新的 1 条
+	# 当前目录 今天 claude 的最近的 1 个 session
 	query-session -n 1
 
-	# 过去 7 天中 createTime 最新的 3 条（所有项目）
+	# 当前目录 过去 3 天内 claude 的最近的 3 个 session
+	query-session -n 1 -n 3 
+
+	# 指定时间范围
+	query-session  -s 20260513 -e 20260514
+
+所有目录（非当前目录）
+	# 所有目录（非当前目录） 过去 7 天中 claude 最新的 3 条。-p 是大小写忽略的正则匹配
 	query-session -n 3 -l 7 -p ".*"
 
-	# 今天的 所有项目的 session ，  -p 是大小写忽略的正则匹配
-	query-session -p ".*"
-
-	# 输出指定 时间内 指定 正则项目的  
+	# 通过正则式指定 目录
 	query-session -p "aiAgent"  -s 20260513 -e 20260514
 
-	# -p 匹配过滤， 而 -x 是排除过滤 -x 的优先级比 -p 高 ， -x 是大小写忽略的正则匹配
+	# -p 匹配目录， 而 -x 是排除目录 。 -x 的优先级比 -p 高 ， -x 是大小写忽略的正则匹配
 	query-session -p "git" -x 'aiagent' -s 20260513 -e 20260514
 
-codex example:
+其他 agent：
 	# 输出当前目录今天的所有 session
 	query-session -t codex
 
-cursor example:
-	# 当前工作区今天创建的 cursor agent 会话
+	# 当前工作区今天创建的 cursor 会话
 	query-session -t cursor
 `, today, today)
 }
