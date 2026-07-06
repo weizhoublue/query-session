@@ -22,6 +22,8 @@ func main() {
 	os.Exit(code)
 }
 
+const version = "0.6.0"
+
 func run(args []string, stdout, stderr io.Writer) (int, error) {
 	today := time.Now().Local().Format("20060102")
 
@@ -33,9 +35,12 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 	var exclude string
 	var startDay string
 	var endDay string
+	var showVersion bool
 
 	fs := flag.NewFlagSet("query-session", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
+	fs.BoolVar(&showVersion, "v", false, "print version")
+	fs.BoolVar(&showVersion, "version", false, "print version")
 	fs.StringVar(&provider, "t", string(session.ProviderClaude), "provider")
 	fs.StringVar(&provider, "type", string(session.ProviderClaude), "provider")
 	fs.BoolVar(&debug, "d", false, "debug logging")
@@ -58,6 +63,11 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 			return 0, nil
 		}
 		return 2, err
+	}
+
+	if showVersion {
+		fmt.Fprintln(stdout, version)
+		return 0, nil
 	}
 
 	if number < 0 {
@@ -177,6 +187,8 @@ func printUsage(w io.Writer, today string) {
   query-session [options]
 
 Options:
+  -v / --version
+        print version
   -d / --debug
         debug logging
   -e / --end-day string
@@ -201,8 +213,8 @@ Options:
 	# 当前目录 今天 claude 的最近的 1 个 session
 	query-session -n 1
 
-	# 当前目录 过去 3 天内 claude 的最近的 3 个 session
-	query-session -n 1 -n 3 
+	# 当前目录 过去 3 天内 claude 的最近的 2 个 session
+	query-session -l 3 -n 2
 
 	# 指定时间范围
 	query-session  -s 20260513 -e 20260514
