@@ -22,7 +22,7 @@ func main() {
 	os.Exit(code)
 }
 
-const version = "0.6.0"
+const version = "0.6.1"
 
 func run(args []string, stdout, stderr io.Writer) (int, error) {
 	today := time.Now().Local().Format("20060102")
@@ -41,8 +41,8 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 	fs.SetOutput(io.Discard)
 	fs.BoolVar(&showVersion, "v", false, "print version")
 	fs.BoolVar(&showVersion, "version", false, "print version")
-	fs.StringVar(&provider, "t", string(session.ProviderClaude), "provider")
-	fs.StringVar(&provider, "type", string(session.ProviderClaude), "provider")
+	fs.StringVar(&provider, "t", string(session.ProviderCodex), "provider")
+	fs.StringVar(&provider, "type", string(session.ProviderCodex), "provider")
 	fs.BoolVar(&debug, "d", false, "debug logging")
 	fs.BoolVar(&debug, "debug", false, "debug logging")
 	fs.IntVar(&number, "n", 0, "print top N sessions by createTime")
@@ -204,23 +204,23 @@ Options:
   -s / --start-day string
         start day in YYYYMMDD (default %q)
   -t / --type string
-        provider: claude, codex, or cursor (default "claude")
+        provider: claude, codex, or cursor (default "codex")
 
 当前目录:
-	# 当前目录 今天 claude 所有 session
+	# 当前目录 今天 codex 所有 session
 	query-session
 
-	# 当前目录 今天 claude 的最近的 1 个 session
+	# 当前目录 今天 codex 的最近的 1 个 session
 	query-session -n 1
 
-	# 当前目录 过去 3 天内 claude 的最近的 2 个 session
+	# 当前目录 过去 3 天内 codex 的最近的 2 个 session
 	query-session -l 3 -n 2
 
 	# 指定时间范围
 	query-session  -s 20260513 -e 20260514
 
 所有目录（非当前目录）
-	# 所有目录（非当前目录） 过去 7 天中 claude 最新的 3 条。-p 是大小写忽略的正则匹配
+	# 所有目录（非当前目录） 过去 7 天中 codex 最新的 3 条。-p 是大小写忽略的正则匹配
 	query-session -n 3 -l 7 -p ".*"
 
 	# 通过正则式指定 目录
@@ -230,8 +230,8 @@ Options:
 	query-session -p "git" -x 'aiagent' -s 20260513 -e 20260514
 
 其他 agent：
-	# 输出当前目录今天的所有 session
-	query-session -t codex
+	# 输出当前目录今天的所有 claude 会话
+	query-session -t claude
 
 	# 当前工作区今天创建的 cursor 会话
 	query-session -t cursor

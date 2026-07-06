@@ -6,22 +6,22 @@
 go build ./cmd/query-session
 
 # 输出 当前目录  claude 今天的所有 session
-./query-session
+./query-session -t claude
 
 # 输出 当前目录  claude 今天的最后一个创建的 session
-./query-session -n 1
+./query-session -t claude -n 1
 
 # 输出 claude 今天的 所有项目的 session ，  -p 是大小写忽略的正则匹配
-./query-session -p ".*"
+./query-session -t claude -p ".*"
 
 # 输出 claude 今天的 所有项目的 session 的 全局最后一个创建
-./query-session -p ".*" -n 1
+./query-session -t claude -p ".*" -n 1
 
 # 输出 claude 指定 时间内 指定 正则项目的  
-./query-session -p "aiAgent"  -s 20260513 -e 20260514
+./query-session -t claude -p "aiAgent"  -s 20260513 -e 20260514
 
 # -p 匹配过滤， 而 -x 是排除过滤 -x 的优先级比 -p 高  ， -x 是大小写忽略的正则匹配
-./query-session -p "git" -x 'aiagent' -s 20260513 -e 20260514
+./query-session -t claude -p "git" -x 'aiagent' -s 20260513 -e 20260514
 
 ```
 
