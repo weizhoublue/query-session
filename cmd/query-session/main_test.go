@@ -63,7 +63,7 @@ func TestRunHelpCombinesShortAndLongFlags(t *testing.T) {
 		"-p / --project string",
 		"-s / --start-day string",
 		"-t / --type string",
-		`provider: claude, codex, or cursor (default "claude")`,
+		`provider: claude, codex, or cursor (default "codex")`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("help output missing %q in:\n%s", want, out)
