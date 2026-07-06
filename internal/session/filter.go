@@ -72,6 +72,23 @@ func SortSessions(sessions []Session) {
 	})
 }
 
+// TopNByCreateTime 按 createTime 降序排序后返回前 n 条。
+// n <= 0 时返回全部（不做截取）；不修改原切片。
+func TopNByCreateTime(sessions []Session, n int) []Session {
+	if n <= 0 || len(sessions) == 0 {
+		return sessions
+	}
+	sorted := make([]Session, len(sessions))
+	copy(sorted, sessions)
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].CreateTime.After(sorted[j].CreateTime)
+	})
+	if n >= len(sorted) {
+		return sorted
+	}
+	return sorted[:n]
+}
+
 func logFilter(log Logger, format string, args ...any) {
 	if log != nil {
 		log("info", fmt.Sprintf(format, args...))

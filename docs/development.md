@@ -65,7 +65,7 @@ git diff --check -- cmd/query-session internal/session internal/claude internal/
 
 | 包 | 职责 |
 |----|------|
-| `internal/session` | 日期范围、`-p`/`-x` 过滤、`-l` 最新、排序、`FormatLine`、消息清洗 |
+| `internal/session` | 日期范围、`-p`/`-x` 过滤、`-n` 条数限制、排序、`FormatLine`、消息清洗 |
 | `internal/claude` | 扫描 `~/.claude/projects`、目录解码、JSONL 用户消息 |
 | `internal/codex` | 按日期扫描 `~/.codex/sessions`、JSONL、`parent_thread_id` 过滤 |
 | `internal/cursor` | 扫描 `chats/*/*/store.db`、meta/blobs、Protobuf workspace、`<user_query>` 提取 |
@@ -77,8 +77,8 @@ git diff --check -- cmd/query-session internal/session internal/claude internal/
 
 ```bash
 go run ./cmd/query-session
-go run ./cmd/query-session -l=true
-go run ./cmd/query-session -p '.*' -l=false
+go run ./cmd/query-session -n 1
+go run ./cmd/query-session -p '.*'
 go run ./cmd/query-session -s 20260518 -e 20260518 -p '.*' -d=true
 ```
 
@@ -93,7 +93,8 @@ rg -n '"role":"user"' /path/to/session.jsonl | tail -n 10
 ### Codex
 
 ```bash
-go run ./cmd/query-session -t codex -p '.*' -l=false
+go run ./cmd/query-session -t codex -p '.*'
+go run ./cmd/query-session -t codex -p '.*' -n 1
 go run ./cmd/query-session -t codex -d=true -p '.*'
 ```
 
