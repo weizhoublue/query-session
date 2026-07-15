@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"query-session/internal/claude"
@@ -63,6 +64,13 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 			return 0, nil
 		}
 		return 2, err
+	}
+	if fs.NArg() > 0 {
+		quoted := make([]string, fs.NArg())
+		for i, arg := range fs.Args() {
+			quoted[i] = fmt.Sprintf("%q", arg)
+		}
+		return 2, fmt.Errorf("unexpected arguments: %s", strings.Join(quoted, " "))
 	}
 
 	if showVersion {
