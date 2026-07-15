@@ -23,7 +23,7 @@ func main() {
 	os.Exit(code)
 }
 
-const version = "0.6.1"
+const version = "0.6.2"
 
 func run(args []string, stdout, stderr io.Writer) (int, error) {
 	today := time.Now().Local().Format("20060102")
