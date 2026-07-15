@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"query-session/internal/claude"
@@ -22,7 +23,7 @@ func main() {
 	os.Exit(code)
 }
 
-const version = "0.6.1"
+const version = "0.6.2"
 
 func run(args []string, stdout, stderr io.Writer) (int, error) {
 	today := time.Now().Local().Format("20060102")
@@ -63,6 +64,13 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 			return 0, nil
 		}
 		return 2, err
+	}
+	if fs.NArg() > 0 {
+		quoted := make([]string, fs.NArg())
+		for i, arg := range fs.Args() {
+			quoted[i] = fmt.Sprintf("%q", arg)
+		}
+		return 2, fmt.Errorf("unexpected arguments: %s", strings.Join(quoted, " "))
 	}
 
 	if showVersion {
