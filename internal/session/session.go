@@ -30,6 +30,7 @@ type FilterOptions struct {
 	ProjectPattern string
 	ExcludePattern string
 	CurrentDir     string
+	SkipDateFilter bool
 	Start          time.Time
 	End            time.Time
 	Log            Logger

@@ -25,31 +25,48 @@ type lineRecord struct {
 }
 
 func Scan(root string, start, end time.Time, log Logger) ([]session.Session, error) {
-	var sessions []session.Session
+	var files []string
 	for day := dayStart(start); !day.After(end); day = day.AddDate(0, 0, 1) {
 		dayDir := filepath.Join(root, day.Format("2006"), day.Format("01"), day.Format("02"))
 		if log != nil {
 			log("info", "scan codex day "+dayDir)
 		}
-		files, err := filepath.Glob(filepath.Join(dayDir, "*.jsonl"))
+		matches, err := filepath.Glob(filepath.Join(dayDir, "*.jsonl"))
 		if err != nil {
 			return nil, err
 		}
-		for _, file := range files {
-			parsed, ok := parseFile(file, log)
-			if !ok {
-				if log != nil {
-					log("info", "skip codex file "+file)
-				}
-				continue
-			}
-			if log != nil {
-				log("info", "parsed codex session "+parsed.SessionID)
-			}
-			sessions = append(sessions, parsed)
-		}
+		files = append(files, matches...)
 	}
-	return sessions, nil
+	return scanFiles(files, log), nil
+}
+
+func ScanAll(root string, log Logger) ([]session.Session, error) {
+	files, err := filepath.Glob(filepath.Join(root, "*", "*", "*", "*.jsonl"))
+	if err != nil {
+		return nil, err
+	}
+	if log != nil {
+		log("info", "scan all codex sessions under "+root)
+	}
+	return scanFiles(files, log), nil
+}
+
+func scanFiles(files []string, log Logger) []session.Session {
+	var sessions []session.Session
+	for _, file := range files {
+		parsed, ok := parseFile(file, log)
+		if !ok {
+			if log != nil {
+				log("info", "skip codex file "+file)
+			}
+			continue
+		}
+		if log != nil {
+			log("info", "parsed codex session "+parsed.SessionID)
+		}
+		sessions = append(sessions, parsed)
+	}
+	return sessions
 }
 
 func dayStart(t time.Time) time.Time {

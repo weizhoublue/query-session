@@ -23,7 +23,7 @@ func main() {
 	os.Exit(code)
 }
 
-const version = "0.6.2"
+const version = "0.6.3"
 
 func run(args []string, stdout, stderr io.Writer) (int, error) {
 	today := time.Now().Local().Format("20060102")
@@ -46,8 +46,8 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 	fs.StringVar(&provider, "type", string(session.ProviderCodex), "provider")
 	fs.BoolVar(&debug, "d", false, "debug logging")
 	fs.BoolVar(&debug, "debug", false, "debug logging")
-	fs.IntVar(&number, "n", 0, "print top N sessions by createTime")
-	fs.IntVar(&number, "number", 0, "print top N sessions by createTime")
+	fs.IntVar(&number, "n", 10, "print top N sessions by createTime")
+	fs.IntVar(&number, "number", 10, "print top N sessions by createTime")
 	fs.IntVar(&lastDays, "l", 0, "cover past N days including today")
 	fs.IntVar(&lastDays, "last", 0, "cover past N days including today")
 	fs.StringVar(&project, "p", "", "project pattern (case-insensitive)")
@@ -104,9 +104,15 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 		}
 	}
 	var start, end time.Time
+	dateFilter := lastDays > 0
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "s" || f.Name == "start-day" || f.Name == "e" || f.Name == "end-day" {
+			dateFilter = true
+		}
+	})
 	if lastDays > 0 {
 		start, end, err = session.ParseLastDays(lastDays, time.Local)
-	} else {
+	} else if dateFilter {
 		start, end, err = session.ParseDayRange(startDay, endDay, time.Local)
 	}
 	if err != nil {
@@ -136,9 +142,14 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 	case session.ProviderCodex:
 		root := filepath.Join(home, ".codex", "sessions")
 		log("info", "scanning codex sessions under %s", root)
-		sessions, err = codex.Scan(root, start, end, func(level string, message string) {
+		logger := func(level string, message string) {
 			log(level, "%s", message)
-		})
+		}
+		if dateFilter {
+			sessions, err = codex.Scan(root, start, end, logger)
+		} else {
+			sessions, err = codex.ScanAll(root, logger)
+		}
 		if err != nil {
 			return 1, err
 		}
@@ -159,6 +170,7 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 		ProjectPattern: project,
 		ExcludePattern: exclude,
 		CurrentDir:     currentDir,
+		SkipDateFilter: !dateFilter,
 		Start:          start,
 		End:            end,
 		Log: func(level string, message string) {
@@ -168,6 +180,11 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 	if err != nil {
 		return 1, err
 	}
+	outputCount := len(filtered)
+	if number > 0 && outputCount > number {
+		outputCount = number
+	}
+	printQuerySummary(stderr, provider, project, exclude, dateFilter, lastDays, start, end, number, len(filtered), outputCount, currentDir)
 	if len(filtered) == 0 {
 		log("info", "no sessions matched filters")
 		return 0, nil
@@ -188,6 +205,24 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 		fmt.Fprintln(stdout, session.FormatLine(s))
 	}
 	return 0, nil
+}
+
+func printQuerySummary(w io.Writer, provider, project, exclude string, dateFilter bool, lastDays int, start, end time.Time, number, matched, output int, currentDir string) {
+	if project == "" {
+		project = currentDir
+	}
+	fmt.Fprintf(w, "provider: %s\nproject: %s\n", provider, project)
+	if exclude != "" {
+		fmt.Fprintf(w, "exclude: %s\n", exclude)
+	}
+	if !dateFilter {
+		fmt.Fprintln(w, "date: all")
+	} else if lastDays > 0 {
+		fmt.Fprintf(w, "date: last %d days\n", lastDays)
+	} else {
+		fmt.Fprintf(w, "date: %s..%s\n", start.Format("20060102"), end.Format("20060102"))
+	}
+	fmt.Fprintf(w, "number: %d\nmatched: %d\noutput: %d\n", number, matched, output)
 }
 
 func printUsage(w io.Writer, today string) {
@@ -215,10 +250,10 @@ Options:
         provider: claude, codex, or cursor (default "codex")
 
 当前目录:
-	# 当前目录 今天 codex 所有 session
+	# 当前目录所有日期的 codex 最新 10 个 session
 	query-session
 
-	# 当前目录 今天 codex 的最近的 1 个 session
+	# 当前目录所有日期的 codex 最近 1 个 session
 	query-session -n 1
 
 	# 当前目录 过去 3 天内 codex 的最近的 2 个 session
@@ -238,10 +273,10 @@ Options:
 	query-session -p "git" -x 'aiagent' -s 20260513 -e 20260514
 
 其他 agent：
-	# 输出当前目录今天的所有 claude 会话
+	# 输出当前目录所有日期的最新 10 个 claude 会话
 	query-session -t claude
 
-	# 当前工作区今天创建的 cursor 会话
+	# 输出当前工作区所有日期的最新 10 个 cursor 会话
 	query-session -t cursor
 `, today, today)
 }

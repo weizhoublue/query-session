@@ -5,16 +5,16 @@
 ```shell
 go build ./cmd/query-session
 
-# 输出 当前目录  claude 今天的所有 session
+# 输出 当前目录 claude 所有日期最新 10 条 session
 ./query-session -t claude
 
-# 输出 当前目录  claude 今天的最后一个创建的 session
+# 输出 当前目录 claude 所有日期最后一个创建的 session
 ./query-session -t claude -n 1
 
-# 输出 claude 今天的 所有项目的 session ，  -p 是大小写忽略的正则匹配
+# 输出 claude 所有日期的所有项目最新 10 条 session，-p 是大小写忽略的正则匹配
 ./query-session -t claude -p ".*"
 
-# 输出 claude 今天的 所有项目的 session 的 全局最后一个创建
+# 输出 claude 所有日期的所有项目的全局最后一个创建
 ./query-session -t claude -p ".*" -n 1
 
 # 输出 claude 指定 时间内 指定 正则项目的  
@@ -33,16 +33,16 @@ go build ./cmd/query-session
 go build ./cmd/query-session
 
 
-# 输出 当前目录    今天的所有 session
+# 输出 当前目录 codex 所有日期最新 10 条 session
 ./query-session -t codex
 
-# 输出 当前目录    今天的最后一个创建的 session
+# 输出 当前目录 codex 所有日期最后一个创建的 session
 ./query-session -t codex -n 1
 
-# 输出   今天的 所有项目的 session ，  -p 是大小写忽略的正则匹配
+# 输出 codex 所有日期的所有项目最新 10 条 session，-p 是大小写忽略的正则匹配
 ./query-session -t codex -p ".*"
 
-# 输出  今天的 所有项目的 session 的 全局最后一个创建
+# 输出 codex 所有日期的所有项目的全局最后一个创建
 ./query-session -t codex -p ".*" -n 1
 
 # 输出   指定 时间内 指定 正则项目的  
@@ -63,16 +63,16 @@ go build ./cmd/query-session
 go build ./cmd/query-session
 
 
-# 输出 当前目录    今天的所有 session
+# 输出 当前目录 cursor 所有日期最新 10 条 session
 ./query-session -t cursor
 
-# 输出 当前目录    今天的最后一个创建的 session
+# 输出 当前目录 cursor 所有日期最后一个创建的 session
 ./query-session -t cursor -n 1
 
-# 输出   今天的 所有项目的 session ，  -p 是大小写忽略的正则匹配
+# 输出 cursor 所有日期的所有项目最新 10 条 session，-p 是大小写忽略的正则匹配
 ./query-session -t cursor -p ".*"
 
-# 输出  今天的 所有项目的 session 的 全局最后一个创建
+# 输出 cursor 所有日期的所有项目的全局最后一个创建
 ./query-session -t cursor -p ".*" -n 1
 
 # 输出   指定 时间内 指定 正则项目的  
@@ -82,6 +82,4 @@ go build ./cmd/query-session
 ./query-session -t cursor -p ".*" -x 'query-session' -s 20260519 -e 20260520
 
 ```
-
-
 
