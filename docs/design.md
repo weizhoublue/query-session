@@ -28,12 +28,12 @@ Scan (provider) → Filter → Sort → FormatLine
 |------|------|------|
 | `-t` / `--type` | `claude` | provider：`claude`、`codex`、`cursor` |
 | `-d` / `--debug` | `false` | debug 日志输出到 stderr |
-| `-n` / `--number` | `0` | 过滤后按 `createTime` 降序输出前 N 条；`0` 表示全部 |
+| `-n` / `--number` | `10` | 过滤后按 `createTime` 降序输出前 N 条；`0` 表示全部 |
 | `-l` / `--last` | `0` | 日期窗口：过去 N 天含今天（`n=1` 仅今天）；与 `-s`/`-e` 互斥 |
 | `-p` / `--project` | 空 | 项目目录正则（大小写不敏感）；空则精确匹配当前工作目录 |
 | `-x` / `--exclude` | 空 | 排除目录正则，优先级高于 `-p` |
-| `-s` / `--start-day` | 今天 | 开始日期 `YYYYMMDD`（含当天） |
-| `-e` / `--end-day` | 今天 | 结束日期 `YYYYMMDD`（含当天） |
+| `-s` / `--start-day` | 未设置 | 开始日期 `YYYYMMDD`（含当天） |
+| `-e` / `--end-day` | 未设置 | 结束日期 `YYYYMMDD`（含当天） |
 
 校验：未知 provider、非法日期、非法正则、`start-day > end-day`、`-l` 与 `-s`/`-e` 同时指定、`-n`/`-l` 小于 0 时报错退出。
 
@@ -69,7 +69,7 @@ Claude / Codex **不使用**文件修改时间作为会话时间。
 日期过滤：
 
 - 基于 `CreateTime`。
-- 默认 `-s`/`-e` 均为今天；`-l N` 覆盖过去 N 天含今天（`n=1` 等价于仅今天），与 `-s`/`-e` 互斥。
+- 默认不限制日期；`-l N` 覆盖过去 N 天含今天（`n=1` 等价于仅今天），与 `-s`/`-e` 互斥。
 - `start-day` 和 `end-day` 都包含边界当天。
 - 日期按本地时区解释。
 - `start-day > end-day` 时直接报错。
@@ -82,7 +82,7 @@ Claude / Codex **不使用**文件修改时间作为会话时间。
 
 条数限制：
 
-- `-n` / `--number` 默认 `0`（输出全部匹配结果）。
+- `-n` / `--number` 默认 `10`；`-n 0` 输出全部匹配结果。
 - `-n > 0` 时，在所有过滤之后按 `CreateTime` 降序取前 N 条。
 - 可与 `-l` 组合，例如 `-n 3 -l 7` 表示过去 7 天内 createTime 最新的 3 条。
 

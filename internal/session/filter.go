@@ -26,7 +26,7 @@ func Filter(sessions []Session, opts FilterOptions) ([]Session, error) {
 
 	filtered := make([]Session, 0, len(sessions))
 	for _, s := range sessions {
-		if s.CreateTime.Before(opts.Start) || s.CreateTime.After(opts.End) {
+		if !opts.SkipDateFilter && (s.CreateTime.Before(opts.Start) || s.CreateTime.After(opts.End)) {
 			logFilter(opts.Log, "filtered sessionId=%s reason=date dir=%s createTime=%s start=%s end=%s", s.SessionID, s.Dir, s.CreateTime.Format(outputTimeFormat), opts.Start.Format(outputTimeFormat), opts.End.Format(outputTimeFormat))
 			continue
 		}

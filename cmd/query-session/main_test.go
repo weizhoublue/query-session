@@ -2,10 +2,12 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestRunUnknownProviderReturnsErrorWithoutWritingStderr(t *testing.T) {
@@ -304,5 +306,86 @@ func TestRunNegativeLastReturnsError(t *testing.T) {
 	}
 	if err == nil || !strings.Contains(err.Error(), "--last must be") {
 		t.Fatalf("err = %v, want last error", err)
+	}
+}
+
+func TestRunDefaultsToAllDatesAndTenSessions(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	currentDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeCodexSessions(t, home, currentDir, 11)
+
+	var stdout, stderr bytes.Buffer
+	code, err := run(nil, &stdout, &stderr)
+	if code != 0 || err != nil {
+		t.Fatalf("run() = (%d, %v), want (0, nil)", code, err)
+	}
+	lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
+	if got := len(lines); got != 10 {
+		t.Fatalf("printed sessions = %d, want 10; output:\n%s", got, stdout.String())
+	}
+	if !strings.Contains(stdout.String(), "sessionId=session-11") {
+		t.Fatalf("output missing newest session:\n%s", stdout.String())
+	}
+	if strings.Contains(stdout.String(), "sessionId=session-01") {
+		t.Fatalf("output contains oldest session:\n%s", stdout.String())
+	}
+}
+
+func TestRunNumberZeroReturnsAllDatesAndAllSessions(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	currentDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeCodexSessions(t, home, currentDir, 11)
+
+	var stdout, stderr bytes.Buffer
+	code, err := run([]string{"-n", "0"}, &stdout, &stderr)
+	if code != 0 || err != nil {
+		t.Fatalf("run() = (%d, %v), want (0, nil)", code, err)
+	}
+	if got := len(strings.Split(strings.TrimSpace(stdout.String()), "\n")); got != 11 {
+		t.Fatalf("printed sessions = %d, want 11; output:\n%s", got, stdout.String())
+	}
+}
+
+func TestRunExplicitDateRangeStillFiltersSessions(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	currentDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeCodexSessions(t, home, currentDir, 11)
+	today := time.Now().In(time.Local).Format("20060102")
+
+	var stdout, stderr bytes.Buffer
+	code, err := run([]string{"-s", today, "-e", today, "-n", "0"}, &stdout, &stderr)
+	if code != 0 || err != nil {
+		t.Fatalf("run() = (%d, %v), want (0, nil)", code, err)
+	}
+	if got := len(strings.Split(strings.TrimSpace(stdout.String()), "\n")); got != 1 {
+		t.Fatalf("printed sessions = %d, want 1; output:\n%s", got, stdout.String())
+	}
+}
+
+func writeCodexSessions(t *testing.T, home, cwd string, count int) {
+	t.Helper()
+	today := time.Now().In(time.Local)
+	for i := 1; i <= count; i++ {
+		created := today.AddDate(0, 0, -(count - i)).Add(time.Hour)
+		dayDir := filepath.Join(home, ".codex", "sessions", created.Format("2006"), created.Format("01"), created.Format("02"))
+		if err := os.MkdirAll(dayDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		content := fmt.Sprintf(`{"timestamp":%q,"payload":{"id":"session-%02d","cwd":%q,"role":"user","content":[{"type":"input_text","text":"message"}]}}`+"\n", created.Format(time.RFC3339Nano), i, cwd)
+		if err := os.WriteFile(filepath.Join(dayDir, fmt.Sprintf("session-%02d.jsonl", i)), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
