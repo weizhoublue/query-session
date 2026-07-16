@@ -33,6 +33,21 @@ go build -o query-session ./cmd/query-session
 
 ## 输出格式
 
+查询条件摘要输出到 stderr：
+
+```text
+provider: codex
+project: /path/to/project
+date: all
+number: 10
+matched: 8
+output: 8
+```
+
+`exclude` 仅在传入 `-x` 时显示。`matched` 是过滤后的数量，`output` 是条数限制后的实际输出量。
+
+session 输出到 stdout：
+
 ```text
 dir=yyy sessionId=xxxx createTime=xxxx lastTime=xxxx file=xxxx userMsgAmount=N firstMsg="..." lastMsg="..."
 ```

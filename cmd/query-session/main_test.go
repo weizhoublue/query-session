@@ -333,6 +333,10 @@ func TestRunDefaultsToAllDatesAndTenSessions(t *testing.T) {
 	if strings.Contains(stdout.String(), "sessionId=session-01") {
 		t.Fatalf("output contains oldest session:\n%s", stdout.String())
 	}
+	wantSummary := fmt.Sprintf("provider: codex\nproject: %s\ndate: all\nnumber: 10\nmatched: 11\noutput: 10\n", currentDir)
+	if stderr.String() != wantSummary {
+		t.Fatalf("stderr = %q, want %q", stderr.String(), wantSummary)
+	}
 }
 
 func TestRunNumberZeroReturnsAllDatesAndAllSessions(t *testing.T) {
@@ -371,6 +375,46 @@ func TestRunExplicitDateRangeStillFiltersSessions(t *testing.T) {
 	}
 	if got := len(strings.Split(strings.TrimSpace(stdout.String()), "\n")); got != 1 {
 		t.Fatalf("printed sessions = %d, want 1; output:\n%s", got, stdout.String())
+	}
+}
+
+func TestRunPrintsSummaryWhenNoSessionsMatch(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	currentDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	code, err := run(nil, &stdout, &stderr)
+	if code != 0 || err != nil {
+		t.Fatalf("run() = (%d, %v), want (0, nil)", code, err)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	wantSummary := fmt.Sprintf("provider: codex\nproject: %s\ndate: all\nnumber: 10\nmatched: 0\noutput: 0\n", currentDir)
+	if stderr.String() != wantSummary {
+		t.Fatalf("stderr = %q, want %q", stderr.String(), wantSummary)
+	}
+}
+
+func TestRunSummaryShowsExplicitFilters(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	var stdout, stderr bytes.Buffer
+	code, err := run([]string{"-l", "3", "-n", "0", "-p", "project-regexp", "-x", "excluded-regexp"}, &stdout, &stderr)
+	if code != 0 || err != nil {
+		t.Fatalf("run() = (%d, %v), want (0, nil)", code, err)
+	}
+	if stdout.String() != "" {
+		t.Fatalf("stdout = %q, want empty", stdout.String())
+	}
+	wantSummary := "provider: codex\nproject: project-regexp\nexclude: excluded-regexp\ndate: last 3 days\nnumber: 0\nmatched: 0\noutput: 0\n"
+	if stderr.String() != wantSummary {
+		t.Fatalf("stderr = %q, want %q", stderr.String(), wantSummary)
 	}
 }
 

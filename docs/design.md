@@ -86,6 +86,8 @@ Claude / Codex **不使用**文件修改时间作为会话时间。
 - `-n > 0` 时，在所有过滤之后按 `CreateTime` 降序取前 N 条。
 - 可与 `-l` 组合，例如 `-n 3 -l 7` 表示过去 7 天内 createTime 最新的 3 条。
 
+查询条件摘要写入 stderr，session 行写入 stdout。摘要包含 provider、项目（或 `-p` 正则）、可选 exclude 正则、生效日期范围、number、过滤后数量 `matched` 和实际输出量 `output`；无匹配时仍输出摘要。
+
 多行排序（未指定 `-n` 时）：
 
 - 先按 `Dir` 升序。

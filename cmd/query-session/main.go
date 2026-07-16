@@ -180,6 +180,11 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 	if err != nil {
 		return 1, err
 	}
+	outputCount := len(filtered)
+	if number > 0 && outputCount > number {
+		outputCount = number
+	}
+	printQuerySummary(stderr, provider, project, exclude, dateFilter, lastDays, start, end, number, len(filtered), outputCount, currentDir)
 	if len(filtered) == 0 {
 		log("info", "no sessions matched filters")
 		return 0, nil
@@ -200,6 +205,24 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 		fmt.Fprintln(stdout, session.FormatLine(s))
 	}
 	return 0, nil
+}
+
+func printQuerySummary(w io.Writer, provider, project, exclude string, dateFilter bool, lastDays int, start, end time.Time, number, matched, output int, currentDir string) {
+	if project == "" {
+		project = currentDir
+	}
+	fmt.Fprintf(w, "provider: %s\nproject: %s\n", provider, project)
+	if exclude != "" {
+		fmt.Fprintf(w, "exclude: %s\n", exclude)
+	}
+	if !dateFilter {
+		fmt.Fprintln(w, "date: all")
+	} else if lastDays > 0 {
+		fmt.Fprintf(w, "date: last %d days\n", lastDays)
+	} else {
+		fmt.Fprintf(w, "date: %s..%s\n", start.Format("20060102"), end.Format("20060102"))
+	}
+	fmt.Fprintf(w, "number: %d\nmatched: %d\noutput: %d\n", number, matched, output)
 }
 
 func printUsage(w io.Writer, today string) {
