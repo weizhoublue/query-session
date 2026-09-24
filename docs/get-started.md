@@ -40,14 +40,14 @@ go build -o query-session ./cmd/query-session
 provider: copilot
 directory: /path/to/project
 time range: all
-session number/matched/output: 10/2/2
+session limit/matched/output: 10/2/2
 
 SessionId                             Title             MsgAmount  CreateTime         LastTime
 3cc5c8d4-6d18-4ba9-b1c5-486f953a80b1  Research Copilot  5          20260923_23:38:57  20260923_23:38:57
 82d74f12-d89d-45e5-af28-f6292e570101  Fix table output  1          20260923_22:10:00  20260923_22:15:30
 ```
 
-`directory` 是当前目录，指定 `-p` 时为项目正则；`time range` 为 `all`、`last N days` 或 `YYYYMMDD..YYYYMMDD`。`exclude` 仅在传入 `-x` 时显示（位于 `directory` 后）。`session number` 是 `-n` 请求值（默认 10，0 = 不限量）；`matched` 是过滤后、截取前的数量，`output` 是实际输出量。无匹配时仍显示摘要和表头。
+`directory` 是当前目录，指定 `-p` 时为项目正则；`time range` 为 `all`、`last N days` 或 `YYYYMMDD..YYYYMMDD`。`exclude` 仅在传入 `-x` 时显示（位于 `directory` 后）。`session limit` 是 `-n` 请求的最大输出条数（默认 10，0 = 不限量）；`matched` 是过滤后、截取前的数量，`output` 是实际输出量。无匹配时仍显示摘要和表头。
 
 | 字段 | 含义 |
 |------|------|

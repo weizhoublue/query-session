@@ -130,7 +130,7 @@ func assertE2ELines(t *testing.T, stdout string, count int) []string {
 	t.Helper()
 	parts := strings.SplitN(stdout, "\n\n", 2)
 	if len(parts) != 2 || !strings.HasPrefix(parts[0], "provider: ") ||
-		!strings.Contains(parts[0], "\nsession number/matched/output: ") {
+		!strings.Contains(parts[0], "\nsession limit/matched/output: ") {
 		t.Fatalf("missing report summary: %q", stdout)
 	}
 	table := strings.Split(strings.TrimSuffix(parts[1], "\n"), "\n")
@@ -209,7 +209,7 @@ func TestCLIBinaryEndToEnd(t *testing.T) {
 					t.Fatalf("exit=%d, stderr=%q", code, stderr)
 				}
 				lines := assertE2ELines(t, stdout, tc.count)
-				if !strings.Contains(stdout, fmt.Sprintf("session number/matched/output: 0/%d/%d\n", tc.count, tc.count)) || stderr != "" {
+				if !strings.Contains(stdout, fmt.Sprintf("session limit/matched/output: 0/%d/%d\n", tc.count, tc.count)) || stderr != "" {
 					t.Fatalf("report = %q, stderr = %q", stdout, stderr)
 				}
 				for i, title := range tc.titles {
@@ -264,7 +264,7 @@ func TestCLIBinaryEndToEnd(t *testing.T) {
 		lines := assertE2ELines(t, stdout, 2)
 		if code != 0 || stderr != "" || !strings.HasPrefix(lines[0], "copilot-old  ") ||
 			!strings.HasPrefix(lines[1], "copilot-fallback  ") ||
-			!strings.Contains(stdout, "session number/matched/output: 0/2/2\n") {
+			!strings.Contains(stdout, "session limit/matched/output: 0/2/2\n") {
 			t.Fatalf("date range = (code=%d, stdout=%q, stderr=%q)", code, stdout, stderr)
 		}
 		stdout, _, code = f.run(t, "-t", "copilot", "-l", "2", "-n", "0")
@@ -285,7 +285,7 @@ func TestCLIBinaryEndToEnd(t *testing.T) {
 		}
 		stdout, stderr, code = f.run(t, "-t", "copilot", "-x", strings.ToUpper(filepath.Base(f.workspace)))
 		if code != 0 || len(assertE2ELines(t, stdout, 0)) != 0 ||
-			!strings.Contains(stdout, "session number/matched/output: 10/0/0\n") || stderr != "" {
+			!strings.Contains(stdout, "session limit/matched/output: 10/0/0\n") || stderr != "" {
 			t.Fatalf("excluded current project = (code=%d, stdout=%q, stderr=%q)", code, stdout, stderr)
 		}
 	})

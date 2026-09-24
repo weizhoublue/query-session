@@ -24,7 +24,7 @@ func main() {
 	os.Exit(code)
 }
 
-const version = "0.7.1"
+const version = "0.7.2"
 
 func run(args []string, stdout, stderr io.Writer) (int, error) {
 	today := time.Now().Local().Format("20060102")
@@ -247,7 +247,7 @@ func printQuerySummary(w io.Writer, provider, project, exclude string, dateFilte
 			return err
 		}
 	}
-	_, err := fmt.Fprintf(w, "session number/matched/output: %d/%d/%d\n\n", number, matched, output)
+	_, err := fmt.Fprintf(w, "session limit/matched/output: %d/%d/%d\n\n", number, matched, output)
 	return err
 }
 
