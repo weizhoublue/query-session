@@ -20,7 +20,7 @@
 核心流程：
 
 ```text
-CompileDirMatcher → Scan (provider) → Filter → Sort → FormatLine
+CompileDirMatcher → Scan (provider) → Filter → Sort → FormatTable
 ```
 
 ## CLI 参数
@@ -89,7 +89,7 @@ Claude / Codex **不使用**文件修改时间作为会话时间。
 - `-n > 0` 时，在所有过滤之后按 `CreateTime` 降序取前 N 条。
 - 可与 `-l` 组合，例如 `-n 3 -l 7` 表示过去 7 天内 createTime 最新的 3 条。
 
-查询条件摘要写入 stderr，session 行写入 stdout。摘要包含 provider、项目（或 `-p` 正则）、可选 exclude 正则、生效日期范围、number、过滤后数量 `matched` 和实际输出量 `output`；无匹配时仍输出摘要。
+查询条件摘要与表格均写入 stdout，错误与 debug 日志写入 stderr。摘要依次包含 `provider`、`directory`（当前目录或 `-p` 正则）、可选 `exclude`、`time range`（`all`、`last N days` 或 `YYYYMMDD..YYYYMMDD`）、`session number/matched/output`（请求的 `-n` 值、过滤后数量、实际输出量）。`-n 0` 表示不限制条数；无匹配时仍输出摘要和表头。
 
 多行排序（未指定 `-n` 时）：
 
@@ -98,10 +98,10 @@ Claude / Codex **不使用**文件修改时间作为会话时间。
 
 ## 输出设计
 
-每个会话一行：
+每个会话占表格一行：
 
 ```text
-dir=yyy sessionId=xxxx createTime=xxxx lastTime=xxxx file=xxxx userMsgAmount=N title="..."
+SessionId  Title  MsgAmount  CreateTime  LastTime
 ```
 
 标题清洗（`internal/session`）：
@@ -110,9 +110,9 @@ dir=yyy sessionId=xxxx createTime=xxxx lastTime=xxxx file=xxxx userMsgAmount=N t
 - 连续空白合并；截断至 80 个 Unicode 字符，超出追加 `...[N]`。
 - 单引号保留。
 
-`UserMsgAmount`：该会话中**有效用户消息**条数（各 provider 判定规则不同）。
+`MsgAmount`：该会话中**有效用户消息**条数（各 provider 判定规则不同）。异常 `SessionId` 的控制字符只在展示时转义；表格采用标准库 `text/tabwriter` 对齐，不额外缩短标题。
 
-`firstMsg` / `lastMsg` 已从 stdout 移除；消费旧字段的脚本需改读 `title`。
+旧版 stdout 的 `dir=...`、`file=...` 等字段和 stderr 摘要已由 stdout 报告替代，依赖旧格式的脚本需调整。
 
 时间输出格式：`YYYYMMDD_HH:mm:ss`（本地时区）。
 

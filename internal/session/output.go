@@ -2,24 +2,30 @@ package session
 
 import (
 	"fmt"
+	"io"
+	"strconv"
 	"strings"
+	"text/tabwriter"
 	"time"
 	"unicode"
 )
 
 const outputTimeFormat = "20060102_15:04:05"
 
-func FormatLine(s Session) string {
-	return fmt.Sprintf(
-		`dir=%s sessionId=%s createTime=%s lastTime=%s file=%s userMsgAmount=%d title="%s"`,
-		s.Dir,
-		s.SessionID,
-		formatOutputTime(s.CreateTime),
-		formatOutputTime(s.LastTime),
-		s.File,
-		s.UserMsgAmount,
-		formatTitle(s),
-	)
+func FormatTable(w io.Writer, sessions []Session) error {
+	table := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
+	if _, err := fmt.Fprintln(table, "SessionId\tTitle\tMsgAmount\tCreateTime\tLastTime"); err != nil {
+		return err
+	}
+	for _, s := range sessions {
+		id := strconv.Quote(s.SessionID)
+		if _, err := fmt.Fprintf(table, "%s\t%s\t%d\t%s\t%s\n",
+			id[1:len(id)-1], formatTitle(s), s.UserMsgAmount,
+			formatOutputTime(s.CreateTime), formatOutputTime(s.LastTime)); err != nil {
+			return err
+		}
+	}
+	return table.Flush()
 }
 
 func formatTitle(s Session) string {

@@ -143,7 +143,7 @@ go run ./cmd/query-session -t copilot -p 'query-session' -n 0
 go run ./cmd/query-session -t copilot -d=true -p '.*' -n 1
 ```
 
-首行的 `session.start.data.context.cwd` 用于预筛项目；需要确认当前目录是否与会话**初始** cwd 完全一致。`workspace.yaml.name` 是原生标题，缺失时由首条有效 `user.message.data.content` 回退。无用户消息但有可靠目录/创建时间的会话会输出 `title="未命名"`、`userMsgAmount=0`。
+首行的 `session.start.data.context.cwd` 用于预筛项目；需要确认当前目录是否与会话**初始** cwd 完全一致。`workspace.yaml.name` 是原生标题，缺失时由首条有效 `user.message.data.content` 回退。无用户消息但有可靠目录/创建时间的会话在表格中显示 `Title` 为 `未命名`、`MsgAmount` 为 0。
 
 宽泛 `-p` 会读取全部匹配日志；`-n` 和日期筛选不会缩小正文扫描范围。损坏首行和超过 64 MiB 的行明确报错。不要把真实用户消息复制进测试文件；单元测试在临时目录合成 JSONL/YAML。
 

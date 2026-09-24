@@ -2,6 +2,7 @@ package copilot
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -63,8 +64,12 @@ func TestScanExtractsNativeTitleAndValidUserMessages(t *testing.T) {
 		s.LastTime.UTC().Format(time.RFC3339) != "2026-05-18T11:00:00Z" {
 		t.Fatalf("times = %s, %s", s.CreateTime, s.LastTime)
 	}
-	if !strings.HasSuffix(session.FormatLine(s), `title="Review: #42"`) {
-		t.Fatalf("output = %s", session.FormatLine(s))
+	var out bytes.Buffer
+	if err := session.FormatTable(&out, got); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "  Review: #42  ") {
+		t.Fatalf("output = %s", out.String())
 	}
 }
 
@@ -76,8 +81,12 @@ func TestScanIncludesUnnamedSessionWithoutMessages(t *testing.T) {
 	if err != nil || len(got) != 1 {
 		t.Fatalf("Scan = (%v, %v), want one session", got, err)
 	}
+	var out bytes.Buffer
+	if err := session.FormatTable(&out, got); err != nil {
+		t.Fatal(err)
+	}
 	if got[0].UserMsgAmount != 0 || !got[0].CreateTime.Equal(got[0].LastTime) ||
-		!strings.HasSuffix(session.FormatLine(got[0]), `title="未命名"`) {
+		!strings.Contains(out.String(), "未命名") {
 		t.Fatalf("unnamed session = %+v", got[0])
 	}
 }

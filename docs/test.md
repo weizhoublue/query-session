@@ -96,7 +96,7 @@ go build ./cmd/query-session
 ./query-session -t copilot -p 'query-session' -x 'archived' -l 7 -n 0
 ```
 
-四种 provider 均输出 `title="..."`，不再输出 `firstMsg`、`lastMsg`；缺少原生标题时回退首条用户输入，零消息会话可显示 `未命名`。
+四种 provider 均在 stdout 输出 `provider/directory/time range/session number/matched/output` 摘要和 `SessionId  Title  MsgAmount  CreateTime  LastTime` 表格；缺少原生标题时回退首条用户输入，零消息会话可显示 `未命名`。错误与 debug 信息仍在 stderr。
 
 回归与端到端测试（使用临时目录合成会话，不依赖本机 Agent 数据）：
 
