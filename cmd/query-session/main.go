@@ -11,6 +11,7 @@ import (
 
 	"query-session/internal/claude"
 	"query-session/internal/codex"
+	"query-session/internal/copilot"
 	"query-session/internal/cursor"
 	"query-session/internal/session"
 )
@@ -23,7 +24,7 @@ func main() {
 	os.Exit(code)
 }
 
-const version = "0.6.3"
+const version = "0.7.0"
 
 func run(args []string, stdout, stderr io.Writer) (int, error) {
 	today := time.Now().Local().Format("20060102")
@@ -42,8 +43,8 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 	fs.SetOutput(io.Discard)
 	fs.BoolVar(&showVersion, "v", false, "print version")
 	fs.BoolVar(&showVersion, "version", false, "print version")
-	fs.StringVar(&provider, "t", string(session.ProviderCodex), "provider")
-	fs.StringVar(&provider, "type", string(session.ProviderCodex), "provider")
+	fs.StringVar(&provider, "t", string(session.ProviderCopilot), "provider")
+	fs.StringVar(&provider, "type", string(session.ProviderCopilot), "provider")
 	fs.BoolVar(&debug, "d", false, "debug logging")
 	fs.BoolVar(&debug, "debug", false, "debug logging")
 	fs.IntVar(&number, "n", 10, "print top N sessions by createTime")
@@ -127,6 +128,21 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 	if err != nil {
 		return 1, err
 	}
+	filterOpts := session.FilterOptions{
+		ProjectPattern: project,
+		ExcludePattern: exclude,
+		CurrentDir:     currentDir,
+		SkipDateFilter: !dateFilter,
+		Start:          start,
+		End:            end,
+		Log: func(level string, message string) {
+			log(level, "%s", message)
+		},
+	}
+	filterOpts.Matcher, err = session.NewDirMatcher(filterOpts)
+	if err != nil {
+		return 1, err
+	}
 
 	var sessions []session.Session
 	switch session.Provider(provider) {
@@ -162,21 +178,24 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 		if err != nil {
 			return 1, err
 		}
+	case session.ProviderCopilot:
+		copilotHome := os.Getenv("COPILOT_HOME")
+		if copilotHome == "" {
+			copilotHome = filepath.Join(home, ".copilot")
+		}
+		root := filepath.Join(copilotHome, "session-state")
+		log("info", "scanning copilot sessions under %s", root)
+		sessions, err = copilot.Scan(root, filterOpts.Matcher, func(level string, message string) {
+			log(level, "%s", message)
+		})
+		if err != nil {
+			return 1, err
+		}
 	default:
 		return 1, fmt.Errorf("unknown provider: %s", provider)
 	}
 
-	filtered, err := session.Filter(sessions, session.FilterOptions{
-		ProjectPattern: project,
-		ExcludePattern: exclude,
-		CurrentDir:     currentDir,
-		SkipDateFilter: !dateFilter,
-		Start:          start,
-		End:            end,
-		Log: func(level string, message string) {
-			log(level, "%s", message)
-		},
-	})
+	filtered, err := session.Filter(sessions, filterOpts)
 	if err != nil {
 		return 1, err
 	}
@@ -247,23 +266,23 @@ Options:
   -s / --start-day string
         start day in YYYYMMDD (default %q)
   -t / --type string
-        provider: claude, codex, or cursor (default "codex")
+        provider: claude, codex, cursor, or copilot (default "copilot")
 
 当前目录:
-	# 当前目录所有日期的 codex 最新 10 个 session
+	# 当前目录所有日期的 copilot 最新 10 个 session
 	query-session
 
-	# 当前目录所有日期的 codex 最近 1 个 session
+	# 当前目录所有日期的 copilot 最近 1 个 session
 	query-session -n 1
 
-	# 当前目录 过去 3 天内 codex 的最近的 2 个 session
+	# 当前目录 过去 3 天内 copilot 的最近的 2 个 session
 	query-session -l 3 -n 2
 
 	# 指定时间范围
 	query-session  -s 20260513 -e 20260514
 
 所有目录（非当前目录）
-	# 所有目录（非当前目录） 过去 7 天中 codex 最新的 3 条。-p 是大小写忽略的正则匹配
+	# 所有目录（非当前目录） 过去 7 天中 copilot 最新的 3 条。-p 是大小写忽略的正则匹配
 	query-session -n 3 -l 7 -p ".*"
 
 	# 通过正则式指定 目录
@@ -275,6 +294,9 @@ Options:
 其他 agent：
 	# 输出当前目录所有日期的最新 10 个 claude 会话
 	query-session -t claude
+
+	# 输出当前目录所有日期的最新 10 个 codex 会话
+	query-session -t codex
 
 	# 输出当前工作区所有日期的最新 10 个 cursor 会话
 	query-session -t cursor

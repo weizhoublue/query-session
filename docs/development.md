@@ -11,6 +11,7 @@
 $HOME/.claude/projects              # Claude
 $HOME/.codex/sessions               # Codex
 $HOME/.cursor/chats                 # Cursor
+${COPILOT_HOME:-$HOME/.copilot}/session-state  # GitHub Copilot CLI
 ```
 
 Cursor provider 额外依赖：
@@ -18,6 +19,8 @@ Cursor provider 额外依赖：
 ```text
 modernc.org/sqlite   # 纯 Go SQLite，无 CGO
 ```
+
+Copilot provider 使用 `gopkg.in/yaml.v3` 解析 `workspace.yaml.name`。
 
 ## 常用命令
 
@@ -34,7 +37,14 @@ go test ./internal/session -count=1
 go test ./internal/claude -count=1
 go test ./internal/codex -count=1
 go test ./internal/cursor -count=1
+go test ./internal/copilot -count=1
 go test ./cmd/query-session -count=1
+```
+
+CLI 端到端用例会在 `t.TempDir()` 构建真实二进制，并用隔离的 `HOME` / `COPILOT_HOME` 构造四种 provider 的测试会话；不读取本机真实会话：
+
+```bash
+go test ./cmd/query-session -run '^TestCLIBinaryEndToEnd$' -count=1
 ```
 
 构建：
@@ -52,13 +62,13 @@ rm -f query-session
 格式化：
 
 ```bash
-gofmt -w cmd/query-session internal/session internal/claude internal/codex internal/cursor
+gofmt -w cmd/query-session internal/session internal/claude internal/codex internal/cursor internal/copilot
 ```
 
 仅检查自己改动的路径：
 
 ```bash
-git diff --check -- cmd/query-session internal/session internal/claude internal/codex internal/cursor docs
+git diff --check -- cmd/query-session internal/session internal/claude internal/codex internal/cursor internal/copilot docs
 ```
 
 ## 包职责
@@ -69,6 +79,7 @@ git diff --check -- cmd/query-session internal/session internal/claude internal/
 | `internal/claude` | 扫描 `~/.claude/projects`、目录解码、JSONL 用户消息 |
 | `internal/codex` | 按日期扫描 `~/.codex/sessions`、JSONL、`parent_thread_id` 过滤 |
 | `internal/cursor` | 扫描 `chats/*/*/store.db`、meta/blobs、Protobuf workspace、`<user_query>` 提取 |
+| `internal/copilot` | 扫描 `session-state/*/events.jsonl`、首行 cwd 预筛、`workspace.yaml.name` |
 | `cmd/query-session` | CLI、provider 分支、usage |
 
 ## 本地真实数据调试
@@ -76,13 +87,13 @@ git diff --check -- cmd/query-session internal/session internal/claude internal/
 ### Claude
 
 ```bash
-go run ./cmd/query-session
-go run ./cmd/query-session -n 1
-go run ./cmd/query-session -p '.*'
-go run ./cmd/query-session -s 20260518 -e 20260518 -p '.*' -d=true
+go run ./cmd/query-session -t claude
+go run ./cmd/query-session -t claude -n 1
+go run ./cmd/query-session -t claude -p '.*'
+go run ./cmd/query-session -t claude -s 20260518 -e 20260518 -p '.*' -d=true
 ```
 
-排查无输出时看 debug：`skip file reason=no-user-message`、`filtered reason=project|date`。
+排查无输出时看 debug：`skip file reason=no-reliable-directory-or-time`、`filtered reason=project|date`。
 
 Claude 有效用户消息：`message.role=user` 且 `message.content` 为**字符串**。`tool_result` 的 content 为数组，会跳过。
 
@@ -112,7 +123,7 @@ debug 关注：
 
 - `scan cursor store path=...` — 是否扫到 `store.db`
 - `parsed sessionId=...` — 解析成功
-- `skip ... reason=no-user-query` — 无 `<user_query>` 真实输入
+- `skip ... reason=no-reliable-directory-or-time` — 零消息会话缺少可确认的目录或创建时间
 - `skip ... reason=invalid-meta` — meta 损坏
 
 手动查看 meta（示例）：
@@ -123,6 +134,18 @@ sqlite3 ~/.cursor/chats/{chatId}/{sessionId}/store.db \
 ```
 
 单元测试使用临时目录合成 `store.db`，不依赖本机 `~/.cursor`（见 `internal/cursor/cursor_test.go`）。
+
+### GitHub Copilot CLI
+
+```bash
+go run ./cmd/query-session  # 默认 copilot
+go run ./cmd/query-session -t copilot -p 'query-session' -n 0
+go run ./cmd/query-session -t copilot -d=true -p '.*' -n 1
+```
+
+首行的 `session.start.data.context.cwd` 用于预筛项目；需要确认当前目录是否与会话**初始** cwd 完全一致。`workspace.yaml.name` 是原生标题，缺失时由首条有效 `user.message.data.content` 回退。无用户消息但有可靠目录/创建时间的会话会输出 `title="未命名"`、`userMsgAmount=0`。
+
+宽泛 `-p` 会读取全部匹配日志；`-n` 和日期筛选不会缩小正文扫描范围。损坏首行和超过 64 MiB 的行明确报错。不要把真实用户消息复制进测试文件；单元测试在临时目录合成 JSONL/YAML。
 
 ## 推荐开发步骤
 
@@ -143,6 +166,6 @@ go run ./cmd/query-session -t nope
 
 ## 相关文档
 
-- [design.md](./design.md) — 三 provider 设计细节
+- [design.md](./design.md) — 四 provider 设计细节
 - [get-started.md](./get-started.md) — 使用说明
 - [test.md](./test.md) — 命令示例

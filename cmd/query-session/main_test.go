@@ -83,7 +83,7 @@ func TestRunHelpCombinesShortAndLongFlags(t *testing.T) {
 		"-p / --project string",
 		"-s / --start-day string",
 		"-t / --type string",
-		`provider: claude, codex, or cursor (default "codex")`,
+		`provider: claude, codex, cursor, or copilot (default "copilot")`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("help output missing %q in:\n%s", want, out)
@@ -225,7 +225,8 @@ func TestRunAcceptsValidQueryFlags(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for _, provider := range []string{"claude", "codex", "cursor"} {
+	t.Setenv("COPILOT_HOME", "")
+	for _, provider := range []string{"claude", "codex", "cursor", "copilot"} {
 		t.Run(provider, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
 
@@ -241,6 +242,7 @@ func TestRunAcceptsValidQueryFlags(t *testing.T) {
 			if code != 0 {
 				t.Fatalf("code = %d, want 0; err = %v", code, err)
 			}
+
 			if err != nil {
 				t.Fatalf("err = %v, want nil", err)
 			}
@@ -248,6 +250,69 @@ func TestRunAcceptsValidQueryFlags(t *testing.T) {
 				t.Fatalf("stderr = %q, want debug scan log", stderr.String())
 			}
 		})
+	}
+}
+
+func TestRunCopilotOutputsNativeTitleAndUnnamedSession(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("COPILOT_HOME", filepath.Join(home, ".copilot"))
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		id, dir, body, name string
+	}{
+		{"titled", cwd, `{"type":"user.message","timestamp":"2026-05-18T12:00:00Z","data":{"content":"first prompt"}}` + "\n", "name: 'Native summary'\n"},
+		{"unnamed", cwd, "", "id: unnamed\n"},
+		{"other", filepath.Join(home, "other"), `{"type":"user.message",broken}` + "\n", ""},
+	} {
+		dir := filepath.Join(home, ".copilot", "session-state", tc.id)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		header := fmt.Sprintf(`{"type":"session.start","timestamp":"2026-05-18T10:00:00Z","data":{"sessionId":%q,"context":{"cwd":%q}}}`+"\n", tc.id, tc.dir)
+		if err := os.WriteFile(filepath.Join(dir, "events.jsonl"), []byte(header+tc.body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if tc.name != "" {
+			if err := os.WriteFile(filepath.Join(dir, "workspace.yaml"), []byte(tc.name), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	var stdout, stderr bytes.Buffer
+	code, err := run([]string{"-t", "copilot", "-n", "0"}, &stdout, &stderr)
+	if code != 0 || err != nil {
+		t.Fatalf("run = (%d, %v)", code, err)
+	}
+	lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
+	if len(lines) != 2 || !strings.HasSuffix(lines[0], `title="未命名"`) ||
+		!strings.HasSuffix(lines[1], `title="Native summary"`) ||
+		strings.Contains(stdout.String(), "firstMsg=") || strings.Contains(stdout.String(), "lastMsg=") {
+		t.Fatalf("unexpected output: %q", stdout.String())
+	}
+	if !strings.Contains(stderr.String(), "matched: 2\noutput: 2") {
+		t.Fatalf("summary = %q", stderr.String())
+	}
+}
+
+func TestRunCopilotRejectsInvalidRegexBeforeOpeningJournal(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("COPILOT_HOME", filepath.Join(home, ".copilot"))
+	dir := filepath.Join(home, ".copilot", "session-state", "broken")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "events.jsonl"), []byte("invalid header"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	code, err := run([]string{"-t", "copilot", "-p", "["}, &stdout, &stderr)
+	if code != 1 || err == nil || !strings.Contains(err.Error(), "error parsing regexp") {
+		t.Fatalf("run = (%d, %v), want regex error before journal read", code, err)
 	}
 }
 
@@ -312,11 +377,12 @@ func TestRunNegativeLastReturnsError(t *testing.T) {
 func TestRunDefaultsToAllDatesAndTenSessions(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("COPILOT_HOME", "")
 	currentDir, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
 	}
-	writeCodexSessions(t, home, currentDir, 11)
+	writeCopilotSessions(t, home, currentDir, 11)
 
 	var stdout, stderr bytes.Buffer
 	code, err := run(nil, &stdout, &stderr)
@@ -333,7 +399,7 @@ func TestRunDefaultsToAllDatesAndTenSessions(t *testing.T) {
 	if strings.Contains(stdout.String(), "sessionId=session-01") {
 		t.Fatalf("output contains oldest session:\n%s", stdout.String())
 	}
-	wantSummary := fmt.Sprintf("provider: codex\nproject: %s\ndate: all\nnumber: 10\nmatched: 11\noutput: 10\n", currentDir)
+	wantSummary := fmt.Sprintf("provider: copilot\nproject: %s\ndate: all\nnumber: 10\nmatched: 11\noutput: 10\n", currentDir)
 	if stderr.String() != wantSummary {
 		t.Fatalf("stderr = %q, want %q", stderr.String(), wantSummary)
 	}
@@ -349,7 +415,7 @@ func TestRunNumberZeroReturnsAllDatesAndAllSessions(t *testing.T) {
 	writeCodexSessions(t, home, currentDir, 11)
 
 	var stdout, stderr bytes.Buffer
-	code, err := run([]string{"-n", "0"}, &stdout, &stderr)
+	code, err := run([]string{"-t", "codex", "-n", "0"}, &stdout, &stderr)
 	if code != 0 || err != nil {
 		t.Fatalf("run() = (%d, %v), want (0, nil)", code, err)
 	}
@@ -369,7 +435,7 @@ func TestRunExplicitDateRangeStillFiltersSessions(t *testing.T) {
 	today := time.Now().In(time.Local).Format("20060102")
 
 	var stdout, stderr bytes.Buffer
-	code, err := run([]string{"-s", today, "-e", today, "-n", "0"}, &stdout, &stderr)
+	code, err := run([]string{"-t", "codex", "-s", today, "-e", today, "-n", "0"}, &stdout, &stderr)
 	if code != 0 || err != nil {
 		t.Fatalf("run() = (%d, %v), want (0, nil)", code, err)
 	}
@@ -381,6 +447,7 @@ func TestRunExplicitDateRangeStillFiltersSessions(t *testing.T) {
 func TestRunPrintsSummaryWhenNoSessionsMatch(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("COPILOT_HOME", "")
 	currentDir, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
@@ -394,7 +461,7 @@ func TestRunPrintsSummaryWhenNoSessionsMatch(t *testing.T) {
 	if stdout.String() != "" {
 		t.Fatalf("stdout = %q, want empty", stdout.String())
 	}
-	wantSummary := fmt.Sprintf("provider: codex\nproject: %s\ndate: all\nnumber: 10\nmatched: 0\noutput: 0\n", currentDir)
+	wantSummary := fmt.Sprintf("provider: copilot\nproject: %s\ndate: all\nnumber: 10\nmatched: 0\noutput: 0\n", currentDir)
 	if stderr.String() != wantSummary {
 		t.Fatalf("stderr = %q, want %q", stderr.String(), wantSummary)
 	}
@@ -403,6 +470,7 @@ func TestRunPrintsSummaryWhenNoSessionsMatch(t *testing.T) {
 func TestRunSummaryShowsExplicitFilters(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
+	t.Setenv("COPILOT_HOME", "")
 
 	var stdout, stderr bytes.Buffer
 	code, err := run([]string{"-l", "3", "-n", "0", "-p", "project-regexp", "-x", "excluded-regexp"}, &stdout, &stderr)
@@ -412,7 +480,7 @@ func TestRunSummaryShowsExplicitFilters(t *testing.T) {
 	if stdout.String() != "" {
 		t.Fatalf("stdout = %q, want empty", stdout.String())
 	}
-	wantSummary := "provider: codex\nproject: project-regexp\nexclude: excluded-regexp\ndate: last 3 days\nnumber: 0\nmatched: 0\noutput: 0\n"
+	wantSummary := "provider: copilot\nproject: project-regexp\nexclude: excluded-regexp\ndate: last 3 days\nnumber: 0\nmatched: 0\noutput: 0\n"
 	if stderr.String() != wantSummary {
 		t.Fatalf("stderr = %q, want %q", stderr.String(), wantSummary)
 	}
@@ -429,6 +497,25 @@ func writeCodexSessions(t *testing.T, home, cwd string, count int) {
 		}
 		content := fmt.Sprintf(`{"timestamp":%q,"payload":{"id":"session-%02d","cwd":%q,"role":"user","content":[{"type":"input_text","text":"message"}]}}`+"\n", created.Format(time.RFC3339Nano), i, cwd)
 		if err := os.WriteFile(filepath.Join(dayDir, fmt.Sprintf("session-%02d.jsonl", i)), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func writeCopilotSessions(t *testing.T, home, cwd string, count int) {
+	t.Helper()
+	today := time.Now().In(time.Local)
+	for i := 1; i <= count; i++ {
+		created := today.AddDate(0, 0, -(count - i)).Add(time.Hour)
+		id := fmt.Sprintf("session-%02d", i)
+		path := filepath.Join(home, ".copilot", "session-state", id, "events.jsonl")
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		content := fmt.Sprintf(`{"type":"session.start","timestamp":%q,"data":{"sessionId":%q,"context":{"cwd":%q}}}`+"\n"+
+			`{"type":"user.message","timestamp":%q,"data":{"content":"message"}}`+"\n",
+			created.Format(time.RFC3339Nano), id, cwd, created.Add(time.Minute).Format(time.RFC3339Nano))
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}

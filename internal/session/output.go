@@ -10,24 +10,28 @@ import (
 const outputTimeFormat = "20060102_15:04:05"
 
 func FormatLine(s Session) string {
-	lastMsg := s.LastMsg
-	if s.FirstMsg == s.LastMsg {
-		lastMsg = ""
-	}
 	return fmt.Sprintf(
-		`dir=%s sessionId=%s createTime=%s lastTime=%s file=%s userMsgAmount=%d firstMsg="%s" lastMsg="%s"`,
+		`dir=%s sessionId=%s createTime=%s lastTime=%s file=%s userMsgAmount=%d title="%s"`,
 		s.Dir,
 		s.SessionID,
 		formatOutputTime(s.CreateTime),
 		formatOutputTime(s.LastTime),
 		s.File,
 		s.UserMsgAmount,
-		CleanMessageSummary(s.FirstMsg),
-		CleanMessageSummary(lastMsg),
+		formatTitle(s),
 	)
 }
 
-func CleanMessageSummary(msg string) string {
+func formatTitle(s Session) string {
+	for _, candidate := range []string{s.Title, s.FirstMsg} {
+		if title := cleanMessage(candidate, 80); title != "" {
+			return title
+		}
+	}
+	return "未命名"
+}
+
+func cleanMessage(msg string, maxLength int) string {
 	var b strings.Builder
 	previousSpace := true
 
@@ -45,8 +49,8 @@ func CleanMessageSummary(msg string) string {
 
 	cleaned := strings.TrimSpace(b.String())
 	runes := []rune(cleaned)
-	if len(runes) > 20 {
-		return fmt.Sprintf("%s...[%d]", string(runes[:20]), len(runes))
+	if len(runes) > maxLength {
+		return fmt.Sprintf("%s...[%d]", string(runes[:maxLength]), len(runes))
 	}
 	return cleaned
 }
