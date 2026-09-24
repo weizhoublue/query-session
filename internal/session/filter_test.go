@@ -53,10 +53,10 @@ func TestFilterDateBoundaryInclusion(t *testing.T) {
 	}
 
 	sessions := []Session{
-		{SessionID: "at-start", Dir: "/a", CreateTime: start},
-		{SessionID: "at-end", Dir: "/a", CreateTime: end},
-		{SessionID: "before", Dir: "/a", CreateTime: start.Add(-time.Nanosecond)},
-		{SessionID: "after", Dir: "/a", CreateTime: end.Add(time.Nanosecond)},
+		{SessionID: "at-start", Dir: "/a", UserMsgAmount: 1, CreateTime: start},
+		{SessionID: "at-end", Dir: "/a", UserMsgAmount: 1, CreateTime: end},
+		{SessionID: "before", Dir: "/a", UserMsgAmount: 1, CreateTime: start.Add(-time.Nanosecond)},
+		{SessionID: "after", Dir: "/a", UserMsgAmount: 1, CreateTime: end.Add(time.Nanosecond)},
 	}
 
 	got, err := Filter(sessions, FilterOptions{
@@ -100,8 +100,8 @@ func TestParseDayRangeUsesLocalCalendarDayForEnd(t *testing.T) {
 
 func TestFilterExactCurrentDirWhenProjectEmpty(t *testing.T) {
 	sessions := []Session{
-		{Dir: "/repo/a", CreateTime: mustTime(t, "2026-05-18T01:00:00Z")},
-		{Dir: "/repo/b", CreateTime: mustTime(t, "2026-05-18T02:00:00Z")},
+		{Dir: "/repo/a", UserMsgAmount: 1, CreateTime: mustTime(t, "2026-05-18T01:00:00Z")},
+		{Dir: "/repo/b", UserMsgAmount: 1, CreateTime: mustTime(t, "2026-05-18T02:00:00Z")},
 	}
 
 	start, end, err := ParseDayRange("20260518", "20260518", time.UTC)
@@ -124,8 +124,8 @@ func TestFilterExactCurrentDirWhenProjectEmpty(t *testing.T) {
 
 func TestFilterProjectRegexCaseInsensitive(t *testing.T) {
 	sessions := []Session{
-		{Dir: "/Users/me/Foo", CreateTime: mustTime(t, "2026-05-18T01:00:00Z")},
-		{Dir: "/Users/me/bar", CreateTime: mustTime(t, "2026-05-18T02:00:00Z")},
+		{Dir: "/Users/me/Foo", UserMsgAmount: 1, CreateTime: mustTime(t, "2026-05-18T01:00:00Z")},
+		{Dir: "/Users/me/bar", UserMsgAmount: 1, CreateTime: mustTime(t, "2026-05-18T02:00:00Z")},
 	}
 
 	start, end, err := ParseDayRange("20260518", "20260518", time.UTC)
@@ -149,9 +149,9 @@ func TestFilterProjectRegexCaseInsensitive(t *testing.T) {
 
 func TestFilterExcludeTakesPrecedence(t *testing.T) {
 	sessions := []Session{
-		{Dir: "/repo/foo", CreateTime: mustTime(t, "2026-05-18T01:00:00Z")},
-		{Dir: "/repo/foobar", CreateTime: mustTime(t, "2026-05-18T02:00:00Z")},
-		{Dir: "/repo/bar", CreateTime: mustTime(t, "2026-05-18T03:00:00Z")},
+		{Dir: "/repo/foo", UserMsgAmount: 1, CreateTime: mustTime(t, "2026-05-18T01:00:00Z")},
+		{Dir: "/repo/foobar", UserMsgAmount: 1, CreateTime: mustTime(t, "2026-05-18T02:00:00Z")},
+		{Dir: "/repo/bar", UserMsgAmount: 1, CreateTime: mustTime(t, "2026-05-18T03:00:00Z")},
 	}
 
 	start, end, err := ParseDayRange("20260518", "20260518", time.UTC)
@@ -231,9 +231,10 @@ func TestSortByDirThenCreateTime(t *testing.T) {
 func TestFilterLogsMatchedAndFilteredSessions(t *testing.T) {
 	var logs []string
 	sessions := []Session{
-		{SessionID: "match", Dir: "/repo/a", CreateTime: mustTime(t, "2026-05-18T01:00:00Z"), LastTime: mustTime(t, "2026-05-18T01:30:00Z")},
-		{SessionID: "wrong-project", Dir: "/repo/b", CreateTime: mustTime(t, "2026-05-18T02:00:00Z")},
-		{SessionID: "wrong-date", Dir: "/repo/a", CreateTime: mustTime(t, "2026-05-19T01:00:00Z")},
+		{SessionID: "match", Dir: "/repo/a", UserMsgAmount: 1, CreateTime: mustTime(t, "2026-05-18T01:00:00Z"), LastTime: mustTime(t, "2026-05-18T01:30:00Z")},
+		{SessionID: "wrong-project", Dir: "/repo/b", UserMsgAmount: 1, CreateTime: mustTime(t, "2026-05-18T02:00:00Z")},
+		{SessionID: "wrong-date", Dir: "/repo/a", UserMsgAmount: 1, CreateTime: mustTime(t, "2026-05-19T01:00:00Z")},
+		{SessionID: "empty", Dir: "/repo/a", CreateTime: mustTime(t, "2026-05-18T03:00:00Z")},
 	}
 	start, end, err := ParseDayRange("20260518", "20260518", time.UTC)
 	if err != nil {
@@ -259,10 +260,30 @@ func TestFilterLogsMatchedAndFilteredSessions(t *testing.T) {
 		"info:matched sessionId=match",
 		"info:filtered sessionId=wrong-project reason=project",
 		"info:filtered sessionId=wrong-date reason=date",
+		"info:filtered sessionId=empty reason=no-user-messages",
 	} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("logs missing %q in:\n%s", want, joined)
 		}
+	}
+}
+
+func TestFilterZeroMessagesBeforeTopN(t *testing.T) {
+	sessions := []Session{
+		{SessionID: "older", Dir: "/repo", UserMsgAmount: 2, CreateTime: mustTime(t, "2026-05-18T01:00:00Z")},
+		{SessionID: "empty", Dir: "/repo", CreateTime: mustTime(t, "2026-05-18T03:00:00Z")},
+		{SessionID: "newer", Dir: "/repo", UserMsgAmount: 1, CreateTime: mustTime(t, "2026-05-18T02:00:00Z")},
+	}
+	filtered, err := Filter(sessions, FilterOptions{CurrentDir: "/repo", SkipDateFilter: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(filtered) != 2 {
+		t.Fatalf("matched = %d, want 2", len(filtered))
+	}
+	got := TopNByCreateTime(filtered, 1)
+	if len(got) != 1 || got[0].SessionID != "newer" {
+		t.Fatalf("top one = %#v, want newer", got)
 	}
 }
 
