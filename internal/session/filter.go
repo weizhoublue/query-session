@@ -75,6 +75,10 @@ func Filter(sessions []Session, opts FilterOptions) ([]Session, error) {
 			}
 			continue
 		}
+		if s.UserMsgAmount == 0 {
+			logFilter(opts.Log, "filtered sessionId=%s reason=no-user-messages", s.SessionID)
+			continue
+		}
 		logFilter(opts.Log, "matched sessionId=%s dir=%s createTime=%s lastTime=%s", s.SessionID, s.Dir, s.CreateTime.Format(outputTimeFormat), s.LastTime.Format(outputTimeFormat))
 		filtered = append(filtered, s)
 	}

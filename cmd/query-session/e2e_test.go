@@ -194,10 +194,10 @@ func TestCLIBinaryEndToEnd(t *testing.T) {
 			count    int
 			titles   []string
 		}{
-			{"claude", 2, []string{"Claude native title", "未命名"}},
-			{"codex", 2, []string{"Codex first prompt", "未命名"}},
-			{"cursor", 2, []string{"Cursor native title", "未命名"}},
-			{"copilot", 3, []string{"Fix: #1", "Fallback question", "未命名"}},
+			{"claude", 1, []string{"Claude native title"}},
+			{"codex", 1, []string{"Codex first prompt"}},
+			{"cursor", 1, []string{"Cursor native title"}},
+			{"copilot", 2, []string{"Fix: #1", "Fallback question"}},
 		} {
 			t.Run(tc.provider, func(t *testing.T) {
 				args := []string{"-t", tc.provider, "-n", "0"}
@@ -217,11 +217,8 @@ func TestCLIBinaryEndToEnd(t *testing.T) {
 						t.Fatalf("line %d does not contain title %q: %s", i, title, lines[i])
 					}
 				}
-				if tc.provider == "claude" {
-					zeroTime := may18.Add(time.Hour).Format("20060102_15:04:05")
-					if strings.Count(lines[1], zeroTime) != 2 || !strings.Contains(lines[1], "  0  ") {
-						t.Fatalf("Claude zero-message session time or count incorrect: %s", lines[1])
-					}
+				if strings.Contains(stdout, "  0  ") {
+					t.Fatalf("zero-message session in output: %q", stdout)
 				}
 			})
 		}
@@ -232,16 +229,15 @@ func TestCLIBinaryEndToEnd(t *testing.T) {
 		if code != 0 {
 			t.Fatalf("exit=%d", code)
 		}
-		lines := assertE2ELines(t, stdout, 3)
+		lines := assertE2ELines(t, stdout, 2)
 		if !strings.HasPrefix(lines[0], "copilot-old  ") ||
 			!strings.Contains(lines[0], "  Fix: #1  ") || !strings.Contains(lines[0], "  2  ") ||
 			!strings.Contains(lines[0], may18.Add(5*time.Minute).Format("20060102_15:04:05")) ||
 			!strings.HasSuffix(lines[0], may18.Add(10*time.Minute).Format("20060102_15:04:05")) {
 			t.Fatalf("first line = %q; journal = %s", lines[0], old)
 		}
-		wantRecentTime := recent.Format("20060102_15:04:05")
-		if strings.Count(lines[2], wantRecentTime) != 2 || !strings.Contains(lines[2], "  0  ") {
-			t.Fatalf("zero-message session time or count incorrect: %s", lines[2])
+		if strings.Contains(stdout, "copilot-unnamed") {
+			t.Fatalf("zero-message session in output: %q", stdout)
 		}
 	})
 
@@ -249,11 +245,11 @@ func TestCLIBinaryEndToEnd(t *testing.T) {
 		stdout, stderr, code := f.run(t, "-n", "1")
 		lines := assertE2ELines(t, stdout, 1)
 		if code != 0 || stderr != "" || !strings.HasPrefix(stdout, "provider: copilot\n") ||
-			!strings.HasPrefix(lines[0], "copilot-unnamed  ") {
+			!strings.HasPrefix(lines[0], "copilot-fallback  ") {
 			t.Fatalf("default = (code=%d, stdout=%q, stderr=%q)", code, stdout, stderr)
 		}
 		stdout, _, code = f.run(t, "-t", "codex", "-n", "1")
-		if code != 0 || !strings.HasPrefix(assertE2ELines(t, stdout, 1)[0], "codex-unnamed  ") {
+		if code != 0 || !strings.HasPrefix(assertE2ELines(t, stdout, 1)[0], "codex-named  ") {
 			t.Fatalf("explicit Codex top one = (code=%d, stdout=%q)", code, stdout)
 		}
 	})
@@ -268,18 +264,19 @@ func TestCLIBinaryEndToEnd(t *testing.T) {
 			t.Fatalf("date range = (code=%d, stdout=%q, stderr=%q)", code, stdout, stderr)
 		}
 		stdout, _, code = f.run(t, "-t", "copilot", "-l", "2", "-n", "0")
-		if code != 0 || !strings.HasPrefix(assertE2ELines(t, stdout, 1)[0], "copilot-unnamed  ") {
+		if code != 0 || len(assertE2ELines(t, stdout, 0)) != 0 ||
+			!strings.Contains(stdout, "session limit/matched/output: 0/0/0\n") {
 			t.Fatalf("last two days = (code=%d, stdout=%q)", code, stdout)
 		}
 	})
 
 	t.Run("project regex and exclusion", func(t *testing.T) {
 		stdout, _, code := f.run(t, "-t", "copilot", "-p", strings.ToUpper(filepath.Base(f.workspace)), "-n", "0")
-		if code != 0 || len(assertE2ELines(t, stdout, 3)) != 3 {
+		if code != 0 || len(assertE2ELines(t, stdout, 2)) != 2 {
 			t.Fatalf("case-insensitive project = (code=%d, stdout=%q)", code, stdout)
 		}
 		stdout, stderr, code := f.run(t, "-t", "copilot", "-p", ".*", "-x", strings.ToUpper(filepath.Base(f.other)), "-n", "0")
-		if code != 0 || len(assertE2ELines(t, stdout, 3)) != 3 ||
+		if code != 0 || len(assertE2ELines(t, stdout, 2)) != 2 ||
 			!strings.Contains(stdout, "exclude: "+strings.ToUpper(filepath.Base(f.other))) || stderr != "" {
 			t.Fatalf("exclude before reading invalid body = (code=%d, stdout=%q, stderr=%q)", code, stdout, stderr)
 		}

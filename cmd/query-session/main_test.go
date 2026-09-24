@@ -253,7 +253,7 @@ func TestRunAcceptsValidQueryFlags(t *testing.T) {
 	}
 }
 
-func TestRunCopilotOutputsNativeTitleAndUnnamedSession(t *testing.T) {
+func TestRunCopilotExcludesUnnamedZeroMessageSession(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("COPILOT_HOME", filepath.Join(home, ".copilot"))
@@ -288,11 +288,11 @@ func TestRunCopilotOutputsNativeTitleAndUnnamedSession(t *testing.T) {
 		t.Fatalf("run = (%d, %v)", code, err)
 	}
 	lines := sessionRows(t, stdout.String())
-	if len(lines) != 2 || !strings.Contains(lines[0], "  未命名  ") ||
-		!strings.Contains(lines[1], "  Native summary  ") {
+	if len(lines) != 1 || !strings.Contains(lines[0], "  Native summary  ") ||
+		strings.Contains(stdout.String(), "unnamed  ") {
 		t.Fatalf("unexpected output: %q", stdout.String())
 	}
-	if !strings.Contains(stdout.String(), "session limit/matched/output: 0/2/2\n\n") || stderr.Len() != 0 {
+	if !strings.Contains(stdout.String(), "session limit/matched/output: 0/1/1\n\n") || stderr.Len() != 0 {
 		t.Fatalf("report = %q, stderr = %q", stdout.String(), stderr.String())
 	}
 
@@ -302,7 +302,7 @@ func TestRunCopilotOutputsNativeTitleAndUnnamedSession(t *testing.T) {
 		t.Fatalf("run top one = (%d, %v), stderr = %q", code, err, stderr.String())
 	}
 	created := time.Date(2026, 5, 18, 12, 0, 0, 0, time.UTC).Local().Format("20060102_15:04:05")
-	want := fmt.Sprintf("provider: copilot\ndirectory: %s\ntime range: all\nsession limit/matched/output: 1/2/1\n\n", cwd) +
+	want := fmt.Sprintf("provider: copilot\ndirectory: %s\ntime range: all\nsession limit/matched/output: 1/1/1\n\n", cwd) +
 		fmt.Sprintf("%-11s%-16s%-11s%-19s%s\n", "SessionId", "Title", "MsgAmount", "CreateTime", "LastTime") +
 		fmt.Sprintf("%-11s%-16s%-11s%-19s%s\n", "titled", "Native summary", "1", created, created)
 	if stdout.String() != want {
