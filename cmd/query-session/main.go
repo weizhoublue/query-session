@@ -24,7 +24,7 @@ func main() {
 	os.Exit(code)
 }
 
-const version = "0.7.3"
+const version = "0.7.4"
 
 func run(args []string, stdout, stderr io.Writer) (int, error) {
 	today := time.Now().Local().Format("20060102")
@@ -106,9 +106,13 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 	}
 	var start, end time.Time
 	dateFilter := lastDays > 0
+	var showDirectory bool
 	fs.Visit(func(f *flag.Flag) {
 		if f.Name == "s" || f.Name == "start-day" || f.Name == "e" || f.Name == "end-day" {
 			dateFilter = true
+		}
+		if f.Name == "p" || f.Name == "project" {
+			showDirectory = true
 		}
 	})
 	if lastDays > 0 {
@@ -216,7 +220,7 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 	} else {
 		log("info", "printing %d matched sessions", len(filtered))
 	}
-	if err := session.FormatTable(stdout, result); err != nil {
+	if err := session.FormatTable(stdout, result, showDirectory); err != nil {
 		return 1, err
 	}
 	return 0, nil

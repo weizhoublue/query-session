@@ -494,7 +494,7 @@ func TestRunSummaryShowsExplicitFilters(t *testing.T) {
 		t.Fatalf("run() = (%d, %v), want (0, nil)", code, err)
 	}
 	want := "provider: copilot\ndirectory: project-regexp\nexclude: excluded-regexp\ntime range: last 3 days\nsession limit/matched/output: 0/0/0\n\n" +
-		"SessionId  Title  MsgAmount  CreateTime  LastTime\n"
+		"SessionId  Title  MsgAmount  CreateTime  LastTime  Directory\n"
 	if stdout.String() != want || stderr.Len() != 0 {
 		t.Fatalf("report = %q, want %q; stderr = %q", stdout.String(), want, stderr.String())
 	}

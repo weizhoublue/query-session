@@ -12,16 +12,25 @@ import (
 
 const outputTimeFormat = "20060102_15:04:05"
 
-func FormatTable(w io.Writer, sessions []Session) error {
+func FormatTable(w io.Writer, sessions []Session, showDirectory bool) error {
 	table := tabwriter.NewWriter(w, 0, 4, 2, ' ', 0)
-	if _, err := fmt.Fprintln(table, "SessionId\tTitle\tMsgAmount\tCreateTime\tLastTime"); err != nil {
+	header := "SessionId\tTitle\tMsgAmount\tCreateTime\tLastTime"
+	if showDirectory {
+		header += "\tDirectory"
+	}
+	if _, err := fmt.Fprintln(table, header); err != nil {
 		return err
 	}
 	for _, s := range sessions {
 		id := strconv.Quote(s.SessionID)
-		if _, err := fmt.Fprintf(table, "%s\t%s\t%d\t%s\t%s\n",
+		line := fmt.Sprintf("%s\t%s\t%d\t%s\t%s",
 			id[1:len(id)-1], formatTitle(s), s.UserMsgAmount,
-			formatOutputTime(s.CreateTime), formatOutputTime(s.LastTime)); err != nil {
+			formatOutputTime(s.CreateTime), formatOutputTime(s.LastTime))
+		if showDirectory {
+			dir := strconv.Quote(s.Dir)
+			line += "\t" + dir[1:len(dir)-1]
+		}
+		if _, err := fmt.Fprintln(table, line); err != nil {
 			return err
 		}
 	}

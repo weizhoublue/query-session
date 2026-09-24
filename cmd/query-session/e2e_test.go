@@ -126,7 +126,7 @@ func makeCursorE2EStore(t *testing.T, f cliE2EFixture, id, title string, created
 	}
 }
 
-func assertE2ELines(t *testing.T, stdout string, count int) []string {
+func assertE2ELines(t *testing.T, stdout string, count int, showDirectory bool) []string {
 	t.Helper()
 	parts := strings.SplitN(stdout, "\n\n", 2)
 	if len(parts) != 2 || !strings.HasPrefix(parts[0], "provider: ") ||
@@ -134,17 +134,25 @@ func assertE2ELines(t *testing.T, stdout string, count int) []string {
 		t.Fatalf("missing report summary: %q", stdout)
 	}
 	table := strings.Split(strings.TrimSuffix(parts[1], "\n"), "\n")
-	if len(table) == 0 || !regexp.MustCompile(`^SessionId {2,}Title {2,}MsgAmount {2,}CreateTime {2,}LastTime$`).MatchString(table[0]) {
+	header := `^SessionId {2,}Title {2,}MsgAmount {2,}CreateTime {2,}LastTime`
+	if showDirectory {
+		header += ` {2,}Directory`
+	}
+	if len(table) == 0 || !regexp.MustCompile(header+`$`).MatchString(table[0]) {
 		t.Fatalf("missing table header: %q", stdout)
 	}
 	lines := table[1:]
 	if len(lines) != count {
 		t.Fatalf("got %d lines, want %d: %q", len(lines), count, stdout)
 	}
-	pattern := regexp.MustCompile(`^\S+ {2,}.+? {2,}\d+ {2,}\d{8}_\d\d:\d\d:\d\d {2,}\d{8}_\d\d:\d\d:\d\d$`)
+	row := `^\S+ {2,}.+? {2,}\d+ {2,}\d{8}_\d\d:\d\d:\d\d {2,}\d{8}_\d\d:\d\d:\d\d`
+	if showDirectory {
+		row += ` {2,}.+`
+	}
+	pattern := regexp.MustCompile(row + `$`)
 	for _, line := range lines {
 		if !pattern.MatchString(line) {
-			t.Fatalf("invalid five-column output: %q", line)
+			t.Fatalf("invalid table row: %q", line)
 		}
 	}
 	return lines
@@ -208,7 +216,7 @@ func TestCLIBinaryEndToEnd(t *testing.T) {
 				if code != 0 {
 					t.Fatalf("exit=%d, stderr=%q", code, stderr)
 				}
-				lines := assertE2ELines(t, stdout, tc.count)
+				lines := assertE2ELines(t, stdout, tc.count, tc.provider == "claude")
 				if !strings.Contains(stdout, fmt.Sprintf("session limit/matched/output: 0/%d/%d\n", tc.count, tc.count)) || stderr != "" {
 					t.Fatalf("report = %q, stderr = %q", stdout, stderr)
 				}
@@ -229,7 +237,7 @@ func TestCLIBinaryEndToEnd(t *testing.T) {
 		if code != 0 {
 			t.Fatalf("exit=%d", code)
 		}
-		lines := assertE2ELines(t, stdout, 2)
+		lines := assertE2ELines(t, stdout, 2, false)
 		if !strings.HasPrefix(lines[0], "copilot-old  ") ||
 			!strings.Contains(lines[0], "  Fix: #1  ") || !strings.Contains(lines[0], "  2  ") ||
 			!strings.Contains(lines[0], may18.Add(5*time.Minute).Format("20060102_15:04:05")) ||
@@ -243,13 +251,13 @@ func TestCLIBinaryEndToEnd(t *testing.T) {
 
 	t.Run("default provider and top one", func(t *testing.T) {
 		stdout, stderr, code := f.run(t, "-n", "1")
-		lines := assertE2ELines(t, stdout, 1)
+		lines := assertE2ELines(t, stdout, 1, false)
 		if code != 0 || stderr != "" || !strings.HasPrefix(stdout, "provider: copilot\n") ||
 			!strings.HasPrefix(lines[0], "copilot-fallback  ") {
 			t.Fatalf("default = (code=%d, stdout=%q, stderr=%q)", code, stdout, stderr)
 		}
 		stdout, _, code = f.run(t, "-t", "codex", "-n", "1")
-		if code != 0 || !strings.HasPrefix(assertE2ELines(t, stdout, 1)[0], "codex-named  ") {
+		if code != 0 || !strings.HasPrefix(assertE2ELines(t, stdout, 1, false)[0], "codex-named  ") {
 			t.Fatalf("explicit Codex top one = (code=%d, stdout=%q)", code, stdout)
 		}
 	})
@@ -257,14 +265,14 @@ func TestCLIBinaryEndToEnd(t *testing.T) {
 	t.Run("date and last-days filtering", func(t *testing.T) {
 		day := may18.Format("20060102")
 		stdout, stderr, code := f.run(t, "-t", "copilot", "-n", "0", "-s", day, "-e", day)
-		lines := assertE2ELines(t, stdout, 2)
+		lines := assertE2ELines(t, stdout, 2, false)
 		if code != 0 || stderr != "" || !strings.HasPrefix(lines[0], "copilot-old  ") ||
 			!strings.HasPrefix(lines[1], "copilot-fallback  ") ||
 			!strings.Contains(stdout, "session limit/matched/output: 0/2/2\n") {
 			t.Fatalf("date range = (code=%d, stdout=%q, stderr=%q)", code, stdout, stderr)
 		}
 		stdout, _, code = f.run(t, "-t", "copilot", "-l", "2", "-n", "0")
-		if code != 0 || len(assertE2ELines(t, stdout, 0)) != 0 ||
+		if code != 0 || len(assertE2ELines(t, stdout, 0, false)) != 0 ||
 			!strings.Contains(stdout, "session limit/matched/output: 0/0/0\n") {
 			t.Fatalf("last two days = (code=%d, stdout=%q)", code, stdout)
 		}
@@ -272,16 +280,16 @@ func TestCLIBinaryEndToEnd(t *testing.T) {
 
 	t.Run("project regex and exclusion", func(t *testing.T) {
 		stdout, _, code := f.run(t, "-t", "copilot", "-p", strings.ToUpper(filepath.Base(f.workspace)), "-n", "0")
-		if code != 0 || len(assertE2ELines(t, stdout, 2)) != 2 {
+		if code != 0 || len(assertE2ELines(t, stdout, 2, true)) != 2 {
 			t.Fatalf("case-insensitive project = (code=%d, stdout=%q)", code, stdout)
 		}
 		stdout, stderr, code := f.run(t, "-t", "copilot", "-p", ".*", "-x", strings.ToUpper(filepath.Base(f.other)), "-n", "0")
-		if code != 0 || len(assertE2ELines(t, stdout, 2)) != 2 ||
+		if code != 0 || len(assertE2ELines(t, stdout, 2, true)) != 2 ||
 			!strings.Contains(stdout, "exclude: "+strings.ToUpper(filepath.Base(f.other))) || stderr != "" {
 			t.Fatalf("exclude before reading invalid body = (code=%d, stdout=%q, stderr=%q)", code, stdout, stderr)
 		}
 		stdout, stderr, code = f.run(t, "-t", "copilot", "-x", strings.ToUpper(filepath.Base(f.workspace)))
-		if code != 0 || len(assertE2ELines(t, stdout, 0)) != 0 ||
+		if code != 0 || len(assertE2ELines(t, stdout, 0, false)) != 0 ||
 			!strings.Contains(stdout, "session limit/matched/output: 10/0/0\n") || stderr != "" {
 			t.Fatalf("excluded current project = (code=%d, stdout=%q, stderr=%q)", code, stdout, stderr)
 		}
@@ -326,4 +334,48 @@ func TestCLIBinaryEndToEnd(t *testing.T) {
 			}
 		})
 	})
+}
+
+func TestCLIDirectoryColumnForProjectFlag(t *testing.T) {
+	f := newCLIE2EFixture(t)
+	started := time.Date(2026, 5, 18, 12, 0, 0, 0, time.Local)
+	for _, tc := range []struct{ id, dir string }{
+		{"workspace-session", f.workspace},
+		{"other-session", f.other},
+	} {
+		makeCopilotE2EJournal(t, f, tc.id, tc.dir, started,
+			fmt.Sprintf(`{"type":"user.message","timestamp":%q,"data":{"content":"hello"}}`+"\n",
+				started.Add(time.Minute).Format(time.RFC3339Nano)), "")
+	}
+
+	stdout, stderr, code := f.run(t, "-n", "0")
+	if code != 0 || stderr != "" || len(assertE2ELines(t, stdout, 1, false)) != 1 {
+		t.Fatalf("default = (code=%d, stdout=%q, stderr=%q)", code, stdout, stderr)
+	}
+
+	stdout, stderr, code = f.run(t, "-p", ".*", "-n", "0")
+	lines := assertE2ELines(t, stdout, 2, true)
+	if code != 0 || stderr != "" ||
+		!strings.Contains(stdout, "session limit/matched/output: 0/2/2\n") ||
+		!strings.HasSuffix(lines[0], "  "+f.other) ||
+		!strings.HasSuffix(lines[1], "  "+f.workspace) {
+		t.Fatalf("all projects = (code=%d, stdout=%q, stderr=%q)", code, stdout, stderr)
+	}
+
+	stdout, stderr, code = f.run(t, "--project", filepath.Base(f.other))
+	lines = assertE2ELines(t, stdout, 1, true)
+	if code != 0 || stderr != "" || !strings.HasSuffix(lines[0], "  "+f.other) {
+		t.Fatalf("long project flag = (code=%d, stdout=%q, stderr=%q)", code, stdout, stderr)
+	}
+
+	stdout, stderr, code = f.run(t, "-p", "")
+	lines = assertE2ELines(t, stdout, 1, true)
+	if code != 0 || stderr != "" || !strings.HasSuffix(lines[0], "  "+f.workspace) {
+		t.Fatalf("explicit empty project = (code=%d, stdout=%q, stderr=%q)", code, stdout, stderr)
+	}
+
+	stdout, stderr, code = f.run(t, "-p", "no-match")
+	if code != 0 || stderr != "" || len(assertE2ELines(t, stdout, 0, true)) != 0 {
+		t.Fatalf("unmatched project = (code=%d, stdout=%q, stderr=%q)", code, stdout, stderr)
+	}
 }

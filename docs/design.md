@@ -106,13 +106,15 @@ Claude / Codex **不使用**文件修改时间作为会话时间。
 SessionId  Title  MsgAmount  CreateTime  LastTime
 ```
 
+显式传入 `-p` 或 `--project` 时（包括空字符串），在末尾追加 `Directory` 列，取会话的实际 `Dir`；未传时保持五列。无匹配时表头也按此规则切换。`Directory` 的控制字符在展示时转义，避免破坏行结构。
+
 标题清洗（`internal/session`）：
 
 - 控制字符、空白、双引号、反斜杠替换为空格。
 - 连续空白合并；截断至 80 个 Unicode 字符，超出追加 `...[N]`。
 - 单引号保留。
 
-`MsgAmount`：该会话中**有效用户消息**条数（各 provider 判定规则不同）。异常 `SessionId` 的控制字符只在展示时转义；表格采用标准库 `text/tabwriter` 对齐，不额外缩短标题。
+`MsgAmount`：该会话中**有效用户消息**条数（各 provider 判定规则不同）。异常 `SessionId` 和 `Directory` 的控制字符只在展示时转义；表格采用标准库 `text/tabwriter` 对齐，不额外缩短标题。
 
 旧版 stdout 的 `dir=...`、`file=...` 等字段和 stderr 摘要已由 stdout 报告替代，依赖旧格式的脚本需调整。
 

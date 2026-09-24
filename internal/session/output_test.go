@@ -53,13 +53,43 @@ func TestFormatTableUsesFiveColumns(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	if err := FormatTable(&out, []Session{s}); err != nil {
+	if err := FormatTable(&out, []Session{s}, false); err != nil {
 		t.Fatal(err)
 	}
 	want := fmt.Sprintf("%-11s%-21s%-11s%-19s%s\n", "SessionId", "Title", "MsgAmount", "CreateTime", "LastTime") +
 		fmt.Sprintf("%-11s%-21s%-11s%-19s%s\n", "session-1", "hello first message", "5", "20260518_09:10:11", "20260518_12:13:14")
 	if out.String() != want {
 		t.Fatalf("got %q want %q", out.String(), want)
+	}
+}
+
+func TestFormatTableShowsDirectory(t *testing.T) {
+	when := time.Date(2026, 5, 18, 9, 10, 11, 0, time.Local)
+	s := Session{SessionID: "session-1", Title: "hello", Dir: "/repo/app",
+		CreateTime: when, LastTime: when, UserMsgAmount: 1}
+	var out bytes.Buffer
+	if err := FormatTable(&out, []Session{s}, true); err != nil {
+		t.Fatal(err)
+	}
+	want := fmt.Sprintf("%-11s%-7s%-11s%-19s%-19s%s\n", "SessionId", "Title", "MsgAmount", "CreateTime", "LastTime", "Directory") +
+		fmt.Sprintf("%-11s%-7s%-11s%-19s%-19s%s\n", "session-1", "hello", "1", "20260518_09:10:11", "20260518_09:10:11", "/repo/app")
+	if out.String() != want {
+		t.Fatalf("got %q want %q", out.String(), want)
+	}
+	out.Reset()
+	if err := FormatTable(&out, nil, true); err != nil {
+		t.Fatal(err)
+	}
+	if got := out.String(); got != "SessionId  Title  MsgAmount  CreateTime  LastTime  Directory\n" {
+		t.Fatalf("empty table = %q", got)
+	}
+	out.Reset()
+	s.Dir = "/repo/odd\tname\n"
+	if err := FormatTable(&out, []Session{s}, true); err != nil {
+		t.Fatal(err)
+	}
+	if got := out.String(); !strings.HasSuffix(got, "/repo/odd\\tname\\n\n") {
+		t.Fatalf("directory must stay on one line: %q", got)
 	}
 }
 
@@ -77,7 +107,7 @@ func TestFormatTableUsesNativeTitleAndOmitsMessages(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	if err := FormatTable(&out, []Session{s}); err != nil {
+	if err := FormatTable(&out, []Session{s}, false); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "Native session title  1") ||
@@ -88,14 +118,14 @@ func TestFormatTableUsesNativeTitleAndOmitsMessages(t *testing.T) {
 
 func TestFormatTableEmptyAndEscapedID(t *testing.T) {
 	var out bytes.Buffer
-	if err := FormatTable(&out, nil); err != nil {
+	if err := FormatTable(&out, nil, false); err != nil {
 		t.Fatal(err)
 	}
 	if got, want := out.String(), "SessionId  Title  MsgAmount  CreateTime  LastTime\n"; got != want {
 		t.Fatalf("empty table = %q, want %q", got, want)
 	}
 	out.Reset()
-	if err := FormatTable(&out, []Session{{SessionID: "bad\tid\n\"x\"", Title: "ok"}}); err != nil {
+	if err := FormatTable(&out, []Session{{SessionID: "bad\tid\n\"x\"", Title: "ok"}}, false); err != nil {
 		t.Fatal(err)
 	}
 	lines := strings.Split(strings.TrimSuffix(out.String(), "\n"), "\n")
