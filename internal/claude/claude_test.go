@@ -109,8 +109,8 @@ func TestScanUsesFirstAndLastUserMessages(t *testing.T) {
 	if !got.CreateTime.Equal(wantCreate) || got.FirstMsg != "first" {
 		t.Fatalf("first user = (%s, %q), want (%s, %q)", got.CreateTime, got.FirstMsg, wantCreate, "first")
 	}
-	if !got.LastTime.Equal(wantLast) || got.LastMsg != "last" {
-		t.Fatalf("last user = (%s, %q), want (%s, %q)", got.LastTime, got.LastMsg, wantLast, "last")
+	if !got.LastTime.Equal(wantLast) {
+		t.Fatalf("last user time = %s, want %s", got.LastTime, wantLast)
 	}
 	if got.UserMsgAmount != 2 {
 		t.Fatalf("UserMsgAmount = %d, want 2", got.UserMsgAmount)
@@ -139,12 +139,12 @@ func TestScanSkipsNonStringUserContentWhenChoosingLastMessage(t *testing.T) {
 		t.Fatalf("Scan() returned %d sessions, want 1", len(sessions))
 	}
 	wantLast := time.Date(2026, 5, 18, 10, 10, 0, 0, time.UTC)
-	if !sessions[0].LastTime.Equal(wantLast) || sessions[0].LastMsg != "last human question" {
-		t.Fatalf("last user = (%s, %q), want (%s, %q)", sessions[0].LastTime, sessions[0].LastMsg, wantLast, "last human question")
+	if !sessions[0].LastTime.Equal(wantLast) {
+		t.Fatalf("last user time = %s, want %s", sessions[0].LastTime, wantLast)
 	}
 }
 
-func TestScanSkipsEmptyStringUserContent(t *testing.T) {
+func TestScanIncludesEmptyStringSessionWithReliableTime(t *testing.T) {
 	projectsRoot := t.TempDir()
 	fsRoot := t.TempDir()
 	mustMkdirAll(t, filepath.Join(fsRoot, "repo"))
@@ -159,12 +159,13 @@ func TestScanSkipsEmptyStringUserContent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Scan() error = %v", err)
 	}
-	if len(sessions) != 0 {
-		t.Fatalf("Scan() returned %d sessions, want 0", len(sessions))
+	if len(sessions) != 1 || sessions[0].UserMsgAmount != 0 ||
+		!sessions[0].CreateTime.Equal(sessions[0].LastTime) {
+		t.Fatalf("Scan() = %+v, want unnamed session with matching timestamps", sessions)
 	}
 }
 
-func TestScanSkipsFilesWithoutUserMessages(t *testing.T) {
+func TestScanIncludesFilesWithoutUserMessagesWhenDirectoryExists(t *testing.T) {
 	projectsRoot := t.TempDir()
 	fsRoot := t.TempDir()
 	mustMkdirAll(t, filepath.Join(fsRoot, "repo"))
@@ -177,8 +178,37 @@ func TestScanSkipsFilesWithoutUserMessages(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Scan() error = %v", err)
 	}
-	if len(sessions) != 0 {
-		t.Fatalf("Scan() returned %d sessions, want 0", len(sessions))
+	if len(sessions) != 1 || sessions[0].UserMsgAmount != 0 ||
+		sessions[0].CreateTime.IsZero() || !sessions[0].LastTime.Equal(sessions[0].CreateTime) {
+		t.Fatalf("Scan() = %+v, want zero-message session with valid time", sessions)
+	}
+}
+
+func TestScanUsesLatestNativeAITitle(t *testing.T) {
+	projectsRoot := t.TempDir()
+	fsRoot := t.TempDir()
+	mustMkdirAll(t, filepath.Join(fsRoot, "repo"))
+	projectDir := filepath.Join(projectsRoot, "repo")
+	mustMkdirAll(t, projectDir)
+	mustWriteFile(t, filepath.Join(projectDir, "titled.jsonl"),
+		`{"type":"ai-title","aiTitle":"Early title"}`+"\n"+
+			userLine("2026-05-18T10:00:00Z", "actual prompt")+
+			`{"type":"ai-title","aiTitle":"Final title"}`+"\n")
+	got, err := Scan(projectsRoot, fsRoot, nil)
+	if err != nil || len(got) != 1 || got[0].Title != "Final title" {
+		t.Fatalf("Scan = (%+v, %v), want latest AI title", got, err)
+	}
+}
+
+func TestScanSkipsZeroMessageSessionWithoutVerifiedDirectory(t *testing.T) {
+	projectsRoot := t.TempDir()
+	fsRoot := t.TempDir()
+	projectDir := filepath.Join(projectsRoot, "missing")
+	mustMkdirAll(t, projectDir)
+	mustWriteFile(t, filepath.Join(projectDir, "empty.jsonl"), assistantLine("2026-05-18T09:00:00Z", "ignored"))
+	got, err := Scan(projectsRoot, fsRoot, nil)
+	if err != nil || len(got) != 0 {
+		t.Fatalf("Scan = (%+v, %v), want skipped missing directory", got, err)
 	}
 }
 
@@ -199,8 +229,8 @@ func TestScanParsesUserMessageLongerThanDefaultScannerBuffer(t *testing.T) {
 	if len(sessions) != 1 {
 		t.Fatalf("Scan() returned %d sessions, want 1", len(sessions))
 	}
-	if sessions[0].FirstMsg != longMessage || sessions[0].LastMsg != longMessage {
-		t.Fatalf("message lengths = (%d, %d), want %d", len(sessions[0].FirstMsg), len(sessions[0].LastMsg), len(longMessage))
+	if sessions[0].FirstMsg != longMessage {
+		t.Fatalf("message length = %d, want %d", len(sessions[0].FirstMsg), len(longMessage))
 	}
 }
 
@@ -227,8 +257,8 @@ func TestScanSkipsInvalidJSONLinesWithoutFailing(t *testing.T) {
 	if len(sessions) != 1 {
 		t.Fatalf("Scan() returned %d sessions, want 1", len(sessions))
 	}
-	if sessions[0].FirstMsg != "valid" || sessions[0].LastMsg != "valid" {
-		t.Fatalf("messages = (%q, %q), want valid", sessions[0].FirstMsg, sessions[0].LastMsg)
+	if sessions[0].FirstMsg != "valid" {
+		t.Fatalf("first message = %q, want valid", sessions[0].FirstMsg)
 	}
 	errorLogs := 0
 	for _, log := range logs {
@@ -265,7 +295,7 @@ func TestScanLogsProjectsFilesAndSessionOutcomes(t *testing.T) {
 		"info:scan file sessionId=matched",
 		"info:parsed sessionId=matched",
 		"info:scan file sessionId=skipped",
-		"info:skip file sessionId=skipped reason=no-user-message",
+		"info:parsed sessionId=skipped",
 	} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("logs missing %q in:\n%s", want, joined)

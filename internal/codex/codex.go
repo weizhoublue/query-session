@@ -14,6 +14,7 @@ import (
 type Logger func(level, message string)
 
 type lineRecord struct {
+	Type      string `json:"type"`
 	Timestamp string `json:"timestamp"`
 	Payload   struct {
 		ID      string          `json:"id"`
@@ -86,6 +87,7 @@ func parseFile(path string, log Logger) (session.Session, bool) {
 
 	var out session.Session
 	out.File = path
+	var sessionStart time.Time
 
 	scanner := bufio.NewScanner(file)
 	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
@@ -109,6 +111,11 @@ func parseFile(path string, log Logger) (session.Session, bool) {
 		if out.Dir == "" && record.Payload.CWD != "" {
 			out.Dir = record.Payload.CWD
 		}
+		if record.Type == "session_meta" && record.Payload.CWD != "" {
+			if ts, err := time.Parse(time.RFC3339Nano, record.Timestamp); err == nil {
+				sessionStart = ts
+			}
+		}
 		if record.Payload.Role != "user" {
 			continue
 		}
@@ -129,7 +136,6 @@ func parseFile(path string, log Logger) (session.Session, bool) {
 			out.FirstMsg = msg
 		}
 		out.LastTime = ts
-		out.LastMsg = msg
 	}
 	if err := scanner.Err(); err != nil {
 		if log != nil {
@@ -141,8 +147,15 @@ func parseFile(path string, log Logger) (session.Session, bool) {
 	if out.SessionID == "" {
 		out.SessionID = strings.TrimSuffix(filepath.Base(path), ".jsonl")
 	}
-	if out.SessionID == "" || out.FirstMsg == "" {
+	if out.SessionID == "" {
 		return session.Session{}, false
+	}
+	if out.FirstMsg == "" {
+		if sessionStart.IsZero() || out.Dir == "" {
+			return session.Session{}, false
+		}
+		out.CreateTime = sessionStart
+		out.LastTime = sessionStart
 	}
 	return out, true
 }

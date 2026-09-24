@@ -174,6 +174,30 @@ func TestFilterExcludeTakesPrecedence(t *testing.T) {
 	}
 }
 
+func TestDirMatcherMatchesFilterSemantics(t *testing.T) {
+	matcher, err := NewDirMatcher(FilterOptions{ProjectPattern: "repo", ExcludePattern: "private", CurrentDir: "/elsewhere"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		dir  string
+		want bool
+	}{
+		{"/REPO/public", true},
+		{"/repo/PRIVATE", false},
+		{"/elsewhere", false},
+	} {
+		if got := matcher.Match(tc.dir); got != tc.want {
+			t.Fatalf("Match(%q) = %v, want %v", tc.dir, got, tc.want)
+		}
+	}
+	for _, pattern := range []FilterOptions{{ProjectPattern: "["}, {ExcludePattern: "["}} {
+		if _, err := NewDirMatcher(pattern); err == nil {
+			t.Fatalf("NewDirMatcher(%+v) should reject bad regex", pattern)
+		}
+	}
+}
+
 func TestLatestUsesCreateTime(t *testing.T) {
 	sessions := []Session{
 		{SessionID: "old", CreateTime: mustTime(t, "2026-05-18T01:00:00Z")},

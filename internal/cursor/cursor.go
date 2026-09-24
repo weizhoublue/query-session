@@ -24,6 +24,7 @@ type storeMeta struct {
 	AgentID          string `json:"agentId"`
 	CreatedAt        int64  `json:"createdAt"`
 	LatestRootBlobID string `json:"latestRootBlobId"`
+	Name             string `json:"name"`
 }
 
 type blobMessage struct {
@@ -87,11 +88,12 @@ func parseStoreDB(path string, log Logger) (session.Session, bool, error) {
 		return session.Session{}, false, err
 	}
 
-	first, last, count, err := collectUserQueries(db)
+	first, _, count, err := collectUserQueries(db)
 	if err != nil {
 		return session.Session{}, false, err
 	}
-	if count == 0 {
+	if count == 0 && (meta.CreatedAt <= 0 || dir == "") {
+		logInfo(log, "skip cursor store path=%s reason=no-reliable-directory-or-time", path)
 		return session.Session{}, false, nil
 	}
 
@@ -105,7 +107,7 @@ func parseStoreDB(path string, log Logger) (session.Session, bool, error) {
 	s.Dir = dir
 	s.File = path
 	s.FirstMsg = first
-	s.LastMsg = last
+	s.Title = meta.Name
 	s.UserMsgAmount = count
 	if meta.CreatedAt > 0 {
 		s.CreateTime = time.UnixMilli(meta.CreatedAt).Local()

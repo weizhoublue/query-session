@@ -8,9 +8,10 @@ import (
 type Provider string
 
 const (
-	ProviderClaude Provider = "claude"
-	ProviderCodex  Provider = "codex"
-	ProviderCursor Provider = "cursor"
+	ProviderClaude  Provider = "claude"
+	ProviderCodex   Provider = "codex"
+	ProviderCursor  Provider = "cursor"
+	ProviderCopilot Provider = "copilot"
 )
 
 type Session struct {
@@ -20,7 +21,7 @@ type Session struct {
 	CreateTime    time.Time
 	LastTime      time.Time
 	FirstMsg      string
-	LastMsg       string
+	Title         string
 	UserMsgAmount int
 }
 
@@ -34,6 +35,7 @@ type FilterOptions struct {
 	Start          time.Time
 	End            time.Time
 	Log            Logger
+	Matcher        *DirMatcher
 }
 
 func ParseDayRange(startDay, endDay string, loc *time.Location) (time.Time, time.Time, error) {

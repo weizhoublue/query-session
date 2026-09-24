@@ -189,8 +189,8 @@ func TestScanExtractsCursorSession(t *testing.T) {
 	if s.File != dbPath {
 		t.Fatalf("file=%q", s.File)
 	}
-	if s.FirstMsg != "first question" || s.LastMsg != "last question" {
-		t.Fatalf("msgs=%q / %q", s.FirstMsg, s.LastMsg)
+	if s.FirstMsg != "first question" {
+		t.Fatalf("first message=%q", s.FirstMsg)
 	}
 	if s.UserMsgAmount != 2 {
 		t.Fatalf("userMsgAmount=%d", s.UserMsgAmount)
@@ -201,6 +201,33 @@ func TestScanExtractsCursorSession(t *testing.T) {
 	}
 	if !s.LastTime.Equal(future.Local()) {
 		t.Fatalf("lastTime=%v want %v", s.LastTime, future.Local())
+	}
+}
+
+func TestScanIncludesNamedStoreWithoutUserQueries(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "chat", "session")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	created := time.Date(2026, 5, 20, 10, 0, 0, 0, time.UTC)
+	dbPath := createTestStoreDB(t, dir, storeMeta{
+		AgentID:          "session",
+		Name:             "Native title",
+		CreatedAt:        created.UnixMilli(),
+		LatestRootBlobID: "root",
+	}, []struct {
+		id   string
+		data []byte
+	}{{"root", encodeProtobufStringField(9, "file:///repo/test-project")}})
+	got, err := Scan(root, nil)
+	if err != nil || len(got) != 1 {
+		t.Fatalf("Scan = (%+v, %v), want one session", got, err)
+	}
+	if got[0].Title != "Native title" || got[0].Dir != "/repo/test-project" ||
+		got[0].File != dbPath || got[0].UserMsgAmount != 0 ||
+		!got[0].CreateTime.Equal(created) || got[0].LastTime.IsZero() {
+		t.Fatalf("zero-message session = %+v", got[0])
 	}
 }
 

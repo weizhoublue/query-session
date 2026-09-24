@@ -1,10 +1,10 @@
 package codex
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
-	"encoding/json"
 	"time"
 )
 
@@ -90,8 +90,8 @@ func TestScanExtractsCodexSessionFromPayloadID(t *testing.T) {
 	if got[0].Dir != "/repo/a" {
 		t.Fatalf("dir = %q", got[0].Dir)
 	}
-	if got[0].FirstMsg != "first question" || got[0].LastMsg != "last question" {
-		t.Fatalf("messages = %q / %q", got[0].FirstMsg, got[0].LastMsg)
+	if got[0].FirstMsg != "first question" || !got[0].LastTime.Equal(time.Date(2026, 5, 18, 3, 0, 0, 0, time.UTC)) {
+		t.Fatalf("first message / last time = %q / %s", got[0].FirstMsg, got[0].LastTime)
 	}
 	if got[0].UserMsgAmount != 2 {
 		t.Fatalf("UserMsgAmount = %d, want 2", got[0].UserMsgAmount)
@@ -133,6 +133,7 @@ func TestScanSkipsCodexFileWithoutUserMessages(t *testing.T) {
 	if err := os.MkdirAll(dayDir, 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
+
 	jsonl := `{"timestamp":"2026-05-18T01:00:00Z","payload":{"role":"assistant","content":"only assistant"}}
 `
 	if err := os.WriteFile(filepath.Join(dayDir, "x.jsonl"), []byte(jsonl), 0o644); err != nil {
@@ -147,6 +148,25 @@ func TestScanSkipsCodexFileWithoutUserMessages(t *testing.T) {
 	}
 	if len(got) != 0 {
 		t.Fatalf("expected no sessions, got %d", len(got))
+	}
+}
+
+func TestScanIncludesSessionMetaWithoutUserMessages(t *testing.T) {
+	root := t.TempDir()
+	dayDir := filepath.Join(root, "2026", "05", "18")
+	if err := os.MkdirAll(dayDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	jsonl := `{"type":"session_meta","timestamp":"2026-05-18T00:00:00Z","payload":{"id":"sid","cwd":"/repo/a"}}` + "\n" +
+		`{"type":"event_msg","timestamp":"2026-05-18T01:00:00Z","payload":{"role":"assistant"}}` + "\n"
+	if err := os.WriteFile(filepath.Join(dayDir, "x.jsonl"), []byte(jsonl), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	start, _ := time.Parse(time.RFC3339, "2026-05-18T00:00:00Z")
+	got, err := Scan(root, start, start.Add(24*time.Hour-time.Nanosecond), nil)
+	if err != nil || len(got) != 1 || got[0].UserMsgAmount != 0 || got[0].Dir != "/repo/a" ||
+		!got[0].CreateTime.Equal(start) || !got[0].LastTime.Equal(start) {
+		t.Fatalf("Scan = (%+v, %v), want metadata-backed zero-message session", got, err)
 	}
 }
 

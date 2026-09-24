@@ -15,6 +15,8 @@ import (
 type Logger func(level, message string)
 
 type jsonlEntry struct {
+	Type      string `json:"type"`
+	AITitle   string `json:"aiTitle"`
 	Timestamp string `json:"timestamp"`
 	Message   struct {
 		Role    string          `json:"role"`
@@ -98,13 +100,25 @@ func scanFile(path, dir string, log Logger) (session.Session, bool, error) {
 
 	var result session.Session
 	result.Dir = dir
+	var firstEventTime time.Time
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024)
 	lineNum := 0
 	for scanner.Scan() {
 		lineNum++
 		entry, ok := parseLine(scanner.Bytes(), path, lineNum, log)
-		if !ok || entry.Message.Role != "user" {
+		if !ok {
+			continue
+		}
+		if entry.Type == "ai-title" {
+			result.Title = entry.AITitle
+		}
+		if firstEventTime.IsZero() && entry.Timestamp != "" {
+			if ts, err := time.Parse(time.RFC3339Nano, entry.Timestamp); err == nil {
+				firstEventTime = ts
+			}
+		}
+		if entry.Message.Role != "user" {
 			continue
 		}
 
@@ -124,14 +138,22 @@ func scanFile(path, dir string, log Logger) (session.Session, bool, error) {
 			result.FirstMsg = msg
 		}
 		result.LastTime = timestamp
-		result.LastMsg = msg
 	}
 	if err := scanner.Err(); err != nil {
 		logParseError(log, "failed to scan %s: %v", path, err)
 		return session.Session{}, false, nil
 	}
 
-	return result, !result.CreateTime.IsZero(), nil
+	if result.CreateTime.IsZero() {
+		info, err := os.Stat(dir)
+		if firstEventTime.IsZero() || err != nil || !info.IsDir() {
+			logInfo(log, "skip file path=%s reason=no-reliable-directory-or-time", path)
+			return session.Session{}, false, nil
+		}
+		result.CreateTime = firstEventTime
+		result.LastTime = firstEventTime
+	}
+	return result, true, nil
 }
 
 func parseLine(line []byte, path string, lineNum int, log Logger) (jsonlEntry, bool) {

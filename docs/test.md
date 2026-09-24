@@ -83,3 +83,24 @@ go build ./cmd/query-session
 
 ```
 
+## copilot
+
+```shell
+# 默认查询初始 cwd 为当前目录的 Copilot CLI 会话
+./query-session
+
+# 匹配所有项目（扫描匹配项目的完整事件日志）
+./query-session -t copilot -p ".*" -n 1
+
+# 指定项目、时间和排除规则
+./query-session -t copilot -p 'query-session' -x 'archived' -l 7 -n 0
+```
+
+四种 provider 均输出 `title="..."`，不再输出 `firstMsg`、`lastMsg`；缺少原生标题时回退首条用户输入，零消息会话可显示 `未命名`。
+
+回归与端到端测试（使用临时目录合成会话，不依赖本机 Agent 数据）：
+
+```shell
+go test ./... -count=1
+go test ./cmd/query-session -run '^TestCLIBinaryEndToEnd$' -count=1
+```

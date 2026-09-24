@@ -1,10 +1,10 @@
 # 设计说明
 
-本文档描述 query-session 的 Claude、Codex 和 Cursor 三个 provider 的设计与实现约定。
+本文档描述 query-session 的 Claude、Codex、Cursor 和 Copilot 四个 provider 的设计与实现约定。
 
 ## 总体结构
 
-`query-session` 是一个 Go CLI，依赖 `modernc.org/sqlite`（仅 Cursor provider 使用，无 CGO）。
+`query-session` 是一个 Go CLI；Cursor 使用纯 Go SQLite `modernc.org/sqlite`，Copilot 使用 `gopkg.in/yaml.v3` 解析元信息。
 
 主要模块：
 
@@ -15,18 +15,19 @@
 | `internal/claude` | Claude Desktop 会话：扫描 `~/.claude/projects`，JSONL 解析 |
 | `internal/codex` | Codex 会话：扫描 `~/.codex/sessions`，JSONL 解析 |
 | `internal/cursor` | Cursor Agent 会话：扫描 `~/.cursor/chats`，SQLite `store.db` 解析 |
+| `internal/copilot` | Copilot CLI 会话：扫描 `~/.copilot/session-state`，JSONL 及 YAML 解析 |
 
 核心流程：
 
 ```text
-Scan (provider) → Filter → Sort → FormatLine
+CompileDirMatcher → Scan (provider) → Filter → Sort → FormatLine
 ```
 
 ## CLI 参数
 
 | 参数 | 默认 | 说明 |
 |------|------|------|
-| `-t` / `--type` | `claude` | provider：`claude`、`codex`、`cursor` |
+| `-t` / `--type` | `copilot` | provider：`claude`、`codex`、`cursor`、`copilot` |
 | `-d` / `--debug` | `false` | debug 日志输出到 stderr |
 | `-n` / `--number` | `10` | 过滤后按 `createTime` 降序输出前 N 条；`0` 表示全部 |
 | `-l` / `--last` | `0` | 日期窗口：过去 N 天含今天（`n=1` 仅今天）；与 `-s`/`-e` 互斥 |
@@ -48,19 +49,20 @@ File
 CreateTime
 LastTime
 FirstMsg
-LastMsg
+Title
 UserMsgAmount
 ```
 
+`FirstMsg` 仅在内部用于标题回退，不单独输出。标题优先取原生会话名，其次首条有效用户输入，最后 `未命名`。仅当目录及会话创建时间可靠时保留零消息会话（`UserMsgAmount=0`）；其首末时间不能为零值。
+
 ### 时间与 `file` 字段（按 provider 不同）
 
-| 字段 | Claude | Codex | Cursor |
-|------|--------|-------|--------|
-| `CreateTime` | 第一条有效用户消息的 `timestamp` | 同上 | `meta.createdAt`（毫秒 → 本地时区） |
-| `LastTime` | 最后一条有效用户消息的 `timestamp` | 同上 | `store.db` 的 `mtime` |
-| `File` | `*.jsonl` 完整路径 | 同上 | `store.db` 完整路径 |
-| 日期过滤 `-s`/`-e` 或 `-l N` | 基于 `CreateTime` | 同上 | 同上 |
-| `-n N` 取前 N 条 | 基于 `CreateTime` 降序 | 同上 | 同上 |
+| 字段 | Claude | Codex | Cursor | Copilot |
+|------|--------|-------|--------|---------|
+| `CreateTime` | 首条有效用户消息的 `timestamp`；零消息时首条有效事件时间 | 首条有效用户消息时间；零消息时 `session_meta.timestamp` | `meta.createdAt`（毫秒 → 本地时区） | 首条有效 `user.message` 时间；零消息时 `session.start.timestamp` |
+| `LastTime` | 末条有效用户消息的 `timestamp`；零消息同 `CreateTime` | 同左 | `store.db` 的 `mtime` | 末条有效 `user.message` 时间；零消息同 `CreateTime` |
+| `File` | `*.jsonl` 完整路径 | 同左 | `store.db` 完整路径 | `events.jsonl` 完整路径 |
+| 原生标题 | 最后一个 `ai-title.aiTitle` | 无独立短标题，首条用户输入回退 | `meta.name` | `workspace.yaml.name` |
 
 Claude / Codex **不使用**文件修改时间作为会话时间。
 
@@ -79,6 +81,7 @@ Claude / Codex **不使用**文件修改时间作为会话时间。
 - `-p` 为空时，要求 `Dir` 精确等于当前工作目录。
 - `-p` 非空时，作为大小写不敏感正则匹配 `Dir`。
 - `-x` 非空时，匹配 `Dir` 的会话排除（优先于 `-p`）。
+- 正则在扫描前编译一次并在 Copilot 首行预筛与最终过滤中复用；非法正则在读取正文前报错。
 
 条数限制：
 
@@ -98,18 +101,18 @@ Claude / Codex **不使用**文件修改时间作为会话时间。
 每个会话一行：
 
 ```text
-dir=yyy sessionId=xxxx createTime=xxxx lastTime=xxxx file=xxxx userMsgAmount=N firstMsg="..." lastMsg="..."
+dir=yyy sessionId=xxxx createTime=xxxx lastTime=xxxx file=xxxx userMsgAmount=N title="..."
 ```
 
-消息摘要清洗（`internal/session`）：
+标题清洗（`internal/session`）：
 
 - 控制字符、空白、双引号、反斜杠替换为空格。
-- 连续空白合并；截断至 20 个 Unicode 字符，超出追加 `...[N]`。
+- 连续空白合并；截断至 80 个 Unicode 字符，超出追加 `...[N]`。
 - 单引号保留。
 
 `UserMsgAmount`：该会话中**有效用户消息**条数（各 provider 判定规则不同）。
 
-当 `FirstMsg == LastMsg`（仅一条有效用户消息）时，`lastMsg` 输出为空字符串。
+`firstMsg` / `lastMsg` 已从 stdout 移除；消费旧字段的脚本需改读 `title`。
 
 时间输出格式：`YYYYMMDD_HH:mm:ss`（本地时区）。
 
@@ -146,7 +149,7 @@ $HOME/.claude/projects/<encoded-project-dir>/<session-id>.jsonl
 - `timestamp` 可解析（RFC3339/RFC3339Nano）。
 - `message.content` 为**非空字符串**（数组形式的 `tool_result` 等跳过）。
 
-第一条 / 最后一条有效用户消息 → `CreateTime`/`FirstMsg`、`LastTime`/`LastMsg`。无有效用户消息则跳过文件。
+第一条 / 最后一条有效用户消息 → `CreateTime`/`FirstMsg`、`LastTime`。最后一个 `ai-title.aiTitle` 为原生标题；零消息时仅在解码后的项目目录存在、且有有效事件时间时保留，首末时间均为该事件时间。
 
 单行 buffer 上限 10 MiB。
 
@@ -175,6 +178,7 @@ $HOME/.codex/sessions/YYYY/MM/DD/*.jsonl
 3. 该成员 `type == "input_text"` 且 `text` trim 后非空
 
 多成员 content（系统提示 + 环境上下文）跳过。
+零消息会话仅在 `session_meta` 提供 `payload.cwd` 和顶层有效 `timestamp` 时保留，首末时间均取该时间。
 
 ### 子会话过滤
 
@@ -205,6 +209,7 @@ $HOME/.cursor/chats/{chatId}/{sessionId}/store.db
   - `agentId` → `SessionID`（空则回退为目录名 `{sessionId}`）
   - `createdAt` → `CreateTime`（毫秒）
   - `latestRootBlobId` → 对话树根 blob，用于 workspace
+  - `name` → 原生标题
 
 无效 meta（缺失、坏 hex、坏 JSON）→ 跳过该 `store.db`，`Scan` 不整体失败。
 
@@ -233,7 +238,7 @@ Protobuf 为最小 varint 实现，无需 protoc。
 
 从 `<user_query>...</user_query>` 提取正文；`content` 可为 string 或 `[{type,text}]` 数组。
 
-无有效用户消息 → 跳过该 `store.db`。
+无有效用户消息时，仅在 workspace 可解析且 `meta.createdAt > 0` 时保留该会话；`LastTime` 仍为数据库文件 mtime。
 
 Subagent 无独立 `store.db`，对话在父会话 blobs 内；不解析 `agent-transcripts/*.jsonl`。
 
@@ -242,6 +247,23 @@ Subagent 无独立 `store.db`，对话在父会话 blobs 内；不解析 `agent-
 ```text
 modernc.org/sqlite v1.34.5
 ```
+
+---
+
+## GitHub Copilot CLI Provider
+
+### 数据源与标题
+
+```text
+${COPILOT_HOME:-$HOME/.copilot}/session-state/<session-id>/events.jsonl
+${COPILOT_HOME:-$HOME/.copilot}/session-state/<session-id>/workspace.yaml
+```
+
+`session.start.data.sessionId` 与目录 ID 一致，初始 `data.context.cwd` 为 `Dir`；`workspace.yaml.name` 是 Copilot 自身的会话名称（可以自动生成或由用户修改）。名称可使用 YAML 引号及转义，由 YAML 解析器读取。缺少元信息文件时回退首条有效用户文本，再缺则显示 `未命名`。
+
+扫描各 `events.jsonl` 首个非空事件，验证 `session.start` 的 ID、绝对 cwd 及时间；不匹配项目的日志不读取其余正文。首行损坏明确报错。匹配项目按行流式读取，只解析 `type=user.message` 且 `data.content` 是非空字符串、时间戳有效的记录；不把 `transformedContent`、assistant/tool 事件计入用户消息。零消息时 `CreateTime` 和 `LastTime` 都取已验证的 `session.start.timestamp`。
+
+单条 JSONL 记录上限 64 MiB，超限携路径报错。全项目查询仍需读取所有匹配项目的日志；`-n`/日期过滤不会减少已匹配日志的扫描量。`session-store.db` 的 `turns` 索引可能落后于日志，不用于查询消息。
 
 ---
 
@@ -262,9 +284,10 @@ debug（`-d=true`）输出到 stderr：
 
 | Provider | 典型 debug 行 |
 |----------|----------------|
-| Claude | `scan project`、`scan file`、`parsed`、`skip file reason=no-user-message`、`matched`、`filtered`、`selected latest` |
+| Claude | `scan project`、`scan file`、`parsed`、`skip file reason=no-reliable-directory-or-time`、`matched`、`filtered`、`selected latest` |
 | Codex | `scan codex day`、`skip codex sub-agent session`、`parsed codex session` |
-| Cursor | `scan cursor store path=...`、`parsed sessionId=...`、`skip cursor store path=... reason=no-user-query` 或 `invalid-meta` |
+| Cursor | `scan cursor store path=...`、`parsed sessionId=...`、`skip cursor store path=... reason=no-reliable-directory-or-time` 或 `invalid-meta` |
+| Copilot | `scanning copilot sessions under ...`、损坏首行/超限行返回包含文件路径的错误 |
 
 ---
 
