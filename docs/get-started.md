@@ -47,7 +47,9 @@ SessionId                             Title             MsgAmount  CreateTime   
 82d74f12-d89d-45e5-af28-f6292e570101  Fix table output  1          20260923_22:10:00  20260923_22:15:30
 ```
 
-`directory` 是当前目录，指定 `-p` 时为项目正则；`time range` 为 `all`、`last N days` 或 `YYYYMMDD..YYYYMMDD`。`exclude` 仅在传入 `-x` 时显示（位于 `directory` 后）。`session limit` 是 `-n` 请求的最大输出条数（默认 10，0 = 不限量）；`matched` 是过滤后、截取前的数量，`output` 是实际输出量。无匹配时仍显示摘要和表头。
+`directory` 是当前目录，指定非空 `-p` 时为项目正则；`time range` 为 `all`、`last N days` 或 `YYYYMMDD..YYYYMMDD`。`exclude` 仅在传入 `-x` 时显示（位于 `directory` 后）。`session limit` 是 `-n` 请求的最大输出条数（默认 10，0 = 不限量）；`matched` 是过滤后、截取前的数量，`output` 是实际输出量。无匹配时仍显示摘要和表头。
+
+显式传入 `-p` 或 `--project` 时，表格最后增加 `Directory` 列，显示每条会话的实际目录（即使传入 `-p ""` 或没有匹配结果）；不传时保持上述五列格式。例如 `query-session -n 3 -l 7 -p '.*'` 会显示所有匹配目录的最新三条会话及各自的 `Directory`。
 
 | 字段 | 含义 |
 |------|------|
@@ -56,6 +58,7 @@ SessionId                             Title             MsgAmount  CreateTime   
 | `MsgAmount` | 有效用户消息条数 |
 | `CreateTime` | 会话创建时间（见下表） |
 | `LastTime` | 最后活动时间（见下表） |
+| `Directory` | 显式传入 `-p` / `--project` 时才显示；该会话的实际目录，不是摘要中的查询正则；控制字符在展示时转义 |
 
 旧版 stdout 的 `dir=...` 等逐条字段已改为摘要加表格；依赖旧字段或 stderr 摘要的脚本需调整。没有有效用户消息（`MsgAmount=0`）的会话不显示，也不计入 `matched` 或 `-n` 名额；全部被过滤时仍显示摘要和表头。
 

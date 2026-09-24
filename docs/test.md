@@ -96,7 +96,7 @@ go build ./cmd/query-session
 ./query-session -t copilot -p 'query-session' -x 'archived' -l 7 -n 0
 ```
 
-四种 provider 均在 stdout 输出 `provider/directory/time range/session limit/matched/output` 摘要和 `SessionId  Title  MsgAmount  CreateTime  LastTime` 表格；缺少原生标题时回退首条用户输入，零消息会话不显示。错误与 debug 信息仍在 stderr。
+四种 provider 均在 stdout 输出 `provider/directory/time range/session limit/matched/output` 摘要和 `SessionId  Title  MsgAmount  CreateTime  LastTime` 表格；显式传入 `-p` / `--project` 时追加 `Directory` 列。缺少原生标题时回退首条用户输入，零消息会话不显示。错误与 debug 信息仍在 stderr。
 
 回归与端到端测试（使用临时目录合成会话，不依赖本机 Agent 数据）：
 

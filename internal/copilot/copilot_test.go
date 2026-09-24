@@ -65,7 +65,7 @@ func TestScanExtractsNativeTitleAndValidUserMessages(t *testing.T) {
 		t.Fatalf("times = %s, %s", s.CreateTime, s.LastTime)
 	}
 	var out bytes.Buffer
-	if err := session.FormatTable(&out, got); err != nil {
+	if err := session.FormatTable(&out, got, false); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), "  Review: #42  ") {
@@ -82,7 +82,7 @@ func TestScanIncludesUnnamedSessionWithoutMessages(t *testing.T) {
 		t.Fatalf("Scan = (%v, %v), want one session", got, err)
 	}
 	var out bytes.Buffer
-	if err := session.FormatTable(&out, got); err != nil {
+	if err := session.FormatTable(&out, got, false); err != nil {
 		t.Fatal(err)
 	}
 	if got[0].UserMsgAmount != 0 || !got[0].CreateTime.Equal(got[0].LastTime) ||
