@@ -24,7 +24,7 @@ func main() {
 	os.Exit(code)
 }
 
-const version = "0.7.0"
+const version = "0.7.1"
 
 func run(args []string, stdout, stderr io.Writer) (int, error) {
 	today := time.Now().Local().Format("20060102")
@@ -199,49 +199,56 @@ func run(args []string, stdout, stderr io.Writer) (int, error) {
 	if err != nil {
 		return 1, err
 	}
-	outputCount := len(filtered)
-	if number > 0 && outputCount > number {
-		outputCount = number
+	var result []session.Session
+	if number > 0 {
+		result = session.TopNByCreateTime(filtered, number)
+	} else {
+		session.SortSessions(filtered)
+		result = filtered
 	}
-	printQuerySummary(stderr, provider, project, exclude, dateFilter, lastDays, start, end, number, len(filtered), outputCount, currentDir)
+	if err := printQuerySummary(stdout, provider, project, exclude, dateFilter, lastDays, start, end, number, len(filtered), len(result), currentDir); err != nil {
+		return 1, err
+	}
 	if len(filtered) == 0 {
 		log("info", "no sessions matched filters")
-		return 0, nil
-	}
-
-	if number > 0 {
-		result := session.TopNByCreateTime(filtered, number)
+	} else if number > 0 {
 		log("info", "printing top %d of %d matched sessions", len(result), len(filtered))
-		for _, s := range result {
-			fmt.Fprintln(stdout, session.FormatLine(s))
-		}
-		return 0, nil
+	} else {
+		log("info", "printing %d matched sessions", len(filtered))
 	}
-
-	session.SortSessions(filtered)
-	log("info", "printing %d matched sessions", len(filtered))
-	for _, s := range filtered {
-		fmt.Fprintln(stdout, session.FormatLine(s))
+	if err := session.FormatTable(stdout, result); err != nil {
+		return 1, err
 	}
 	return 0, nil
 }
 
-func printQuerySummary(w io.Writer, provider, project, exclude string, dateFilter bool, lastDays int, start, end time.Time, number, matched, output int, currentDir string) {
+func printQuerySummary(w io.Writer, provider, project, exclude string, dateFilter bool, lastDays int, start, end time.Time, number, matched, output int, currentDir string) error {
 	if project == "" {
 		project = currentDir
 	}
-	fmt.Fprintf(w, "provider: %s\nproject: %s\n", provider, project)
+	if _, err := fmt.Fprintf(w, "provider: %s\ndirectory: %s\n", provider, project); err != nil {
+		return err
+	}
 	if exclude != "" {
-		fmt.Fprintf(w, "exclude: %s\n", exclude)
+		if _, err := fmt.Fprintf(w, "exclude: %s\n", exclude); err != nil {
+			return err
+		}
 	}
 	if !dateFilter {
-		fmt.Fprintln(w, "date: all")
+		if _, err := fmt.Fprintln(w, "time range: all"); err != nil {
+			return err
+		}
 	} else if lastDays > 0 {
-		fmt.Fprintf(w, "date: last %d days\n", lastDays)
+		if _, err := fmt.Fprintf(w, "time range: last %d days\n", lastDays); err != nil {
+			return err
+		}
 	} else {
-		fmt.Fprintf(w, "date: %s..%s\n", start.Format("20060102"), end.Format("20060102"))
+		if _, err := fmt.Fprintf(w, "time range: %s..%s\n", start.Format("20060102"), end.Format("20060102")); err != nil {
+			return err
+		}
 	}
-	fmt.Fprintf(w, "number: %d\nmatched: %d\noutput: %d\n", number, matched, output)
+	_, err := fmt.Fprintf(w, "session number/matched/output: %d/%d/%d\n\n", number, matched, output)
+	return err
 }
 
 func printUsage(w io.Writer, today string) {

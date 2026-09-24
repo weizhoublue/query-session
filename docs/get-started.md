@@ -1,6 +1,6 @@
 # 快速开始
 
-`query-session` 用于查询本机 **Claude Desktop**、**Codex**、**Cursor Agent**、**GitHub Copilot CLI** 的会话 ID 与标题，输出统一的一行格式，便于人工检索。
+`query-session` 用于查询本机 **Claude Desktop**、**Codex**、**Cursor Agent**、**GitHub Copilot CLI** 的会话 ID 与标题，输出统一的摘要和对齐表格，便于人工检索。
 
 ## Provider 一览
 
@@ -34,36 +34,30 @@ go build -o query-session ./cmd/query-session
 
 ## 输出格式
 
-查询条件摘要输出到 stderr：
+查询条件摘要和会话表格均输出到 stdout（错误和 debug 日志仍输出到 stderr）：
 
 ```text
 provider: copilot
-project: /path/to/project
-date: all
-number: 10
-matched: 8
-output: 8
+directory: /path/to/project
+time range: all
+session number/matched/output: 10/2/2
+
+SessionId                             Title             MsgAmount  CreateTime         LastTime
+3cc5c8d4-6d18-4ba9-b1c5-486f953a80b1  Research Copilot  5          20260923_23:38:57  20260923_23:38:57
+82d74f12-d89d-45e5-af28-f6292e570101  Fix table output  1          20260923_22:10:00  20260923_22:15:30
 ```
 
-`exclude` 仅在传入 `-x` 时显示。`matched` 是过滤后的数量，`output` 是条数限制后的实际输出量。
-
-session 输出到 stdout：
-
-```text
-dir=yyy sessionId=xxxx createTime=xxxx lastTime=xxxx file=xxxx userMsgAmount=N title="..."
-```
+`directory` 是当前目录，指定 `-p` 时为项目正则；`time range` 为 `all`、`last N days` 或 `YYYYMMDD..YYYYMMDD`。`exclude` 仅在传入 `-x` 时显示（位于 `directory` 后）。`session number` 是 `-n` 请求值（默认 10，0 = 不限量）；`matched` 是过滤后、截取前的数量，`output` 是实际输出量。无匹配时仍显示摘要和表头。
 
 | 字段 | 含义 |
 |------|------|
-| `dir` | 工作区 / 项目目录 |
-| `sessionId` | 会话 ID |
-| `createTime` | 会话创建时间（见下表） |
-| `lastTime` | 最后活动时间（见下表） |
-| `file` | 会话存储文件完整路径 |
-| `userMsgAmount` | 有效用户消息条数 |
-| `title` | 原生会话标题；缺失时用首条有效用户输入回退，再缺失则为 `未命名`。单行清洗、最多 80 个 Unicode 字符，超出追加 `...[N]` |
+| `SessionId` | 会话 ID；异常控制字符在展示时转义 |
+| `Title` | 原生会话标题；缺失时用首条有效用户输入回退，再缺失则为 `未命名`。单行清洗、最多 80 个 Unicode 字符，超出追加 `...[N]` |
+| `MsgAmount` | 有效用户消息条数 |
+| `CreateTime` | 会话创建时间（见下表） |
+| `LastTime` | 最后活动时间（见下表） |
 
-旧版 stdout 的 `firstMsg` / `lastMsg` 已移除；依赖固定字段的脚本需改读 `title`。没有有效用户输入但具有可靠目录和创建时间的会话也会显示，此时 `userMsgAmount=0`。
+旧版 stdout 的 `dir=...` 等逐条字段已改为摘要加表格；依赖旧字段或 stderr 摘要的脚本需调整。没有有效用户输入但具有可靠目录和创建时间的会话也会显示，此时 `MsgAmount` 为 0。
 
 时间格式：`YYYYMMDD_HH:mm:ss`（本地时区）。
 

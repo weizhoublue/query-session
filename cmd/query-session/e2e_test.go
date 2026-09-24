@@ -128,17 +128,23 @@ func makeCursorE2EStore(t *testing.T, f cliE2EFixture, id, title string, created
 
 func assertE2ELines(t *testing.T, stdout string, count int) []string {
 	t.Helper()
-	if count == 0 && stdout == "" {
-		return nil
+	parts := strings.SplitN(stdout, "\n\n", 2)
+	if len(parts) != 2 || !strings.HasPrefix(parts[0], "provider: ") ||
+		!strings.Contains(parts[0], "\nsession number/matched/output: ") {
+		t.Fatalf("missing report summary: %q", stdout)
 	}
-	lines := strings.Split(strings.TrimSuffix(stdout, "\n"), "\n")
+	table := strings.Split(strings.TrimSuffix(parts[1], "\n"), "\n")
+	if len(table) == 0 || !regexp.MustCompile(`^SessionId {2,}Title {2,}MsgAmount {2,}CreateTime {2,}LastTime$`).MatchString(table[0]) {
+		t.Fatalf("missing table header: %q", stdout)
+	}
+	lines := table[1:]
 	if len(lines) != count {
 		t.Fatalf("got %d lines, want %d: %q", len(lines), count, stdout)
 	}
-	pattern := regexp.MustCompile(`^dir=.+ sessionId=\S+ createTime=\d{8}_\d\d:\d\d:\d\d lastTime=\d{8}_\d\d:\d\d:\d\d file=.+ userMsgAmount=\d+ title="[^"\n]*"$`)
+	pattern := regexp.MustCompile(`^\S+ {2,}.+? {2,}\d+ {2,}\d{8}_\d\d:\d\d:\d\d {2,}\d{8}_\d\d:\d\d:\d\d$`)
 	for _, line := range lines {
-		if !pattern.MatchString(line) || strings.Contains(line, "firstMsg=") || strings.Contains(line, "lastMsg=") {
-			t.Fatalf("invalid seven-field output: %q", line)
+		if !pattern.MatchString(line) {
+			t.Fatalf("invalid five-column output: %q", line)
 		}
 	}
 	return lines
@@ -188,10 +194,10 @@ func TestCLIBinaryEndToEnd(t *testing.T) {
 			count    int
 			titles   []string
 		}{
-			{"claude", 2, []string{`title="Claude native title"`, `title="未命名"`}},
-			{"codex", 2, []string{`title="Codex first prompt"`, `title="未命名"`}},
-			{"cursor", 2, []string{`title="Cursor native title"`, `title="未命名"`}},
-			{"copilot", 3, []string{`title="Fix: #1"`, `title="Fallback question"`, `title="未命名"`}},
+			{"claude", 2, []string{"Claude native title", "未命名"}},
+			{"codex", 2, []string{"Codex first prompt", "未命名"}},
+			{"cursor", 2, []string{"Cursor native title", "未命名"}},
+			{"copilot", 3, []string{"Fix: #1", "Fallback question", "未命名"}},
 		} {
 			t.Run(tc.provider, func(t *testing.T) {
 				args := []string{"-t", tc.provider, "-n", "0"}
@@ -203,18 +209,17 @@ func TestCLIBinaryEndToEnd(t *testing.T) {
 					t.Fatalf("exit=%d, stderr=%q", code, stderr)
 				}
 				lines := assertE2ELines(t, stdout, tc.count)
-				if !strings.Contains(stderr, fmt.Sprintf("matched: %d\noutput: %d\n", tc.count, tc.count)) {
-					t.Fatalf("summary = %q", stderr)
+				if !strings.Contains(stdout, fmt.Sprintf("session number/matched/output: 0/%d/%d\n", tc.count, tc.count)) || stderr != "" {
+					t.Fatalf("report = %q, stderr = %q", stdout, stderr)
 				}
 				for i, title := range tc.titles {
-					if !strings.HasSuffix(lines[i], title) {
-						t.Fatalf("line %d does not end with %q: %s", i, title, lines[i])
+					if !strings.Contains(lines[i], "  "+title+"  ") {
+						t.Fatalf("line %d does not contain title %q: %s", i, title, lines[i])
 					}
 				}
 				if tc.provider == "claude" {
 					zeroTime := may18.Add(time.Hour).Format("20060102_15:04:05")
-					if !strings.Contains(lines[1], "createTime="+zeroTime+" lastTime="+zeroTime+" ") ||
-						!strings.Contains(lines[1], "userMsgAmount=0 ") {
+					if strings.Count(lines[1], zeroTime) != 2 || !strings.Contains(lines[1], "  0  ") {
 						t.Fatalf("Claude zero-message session time or count incorrect: %s", lines[1])
 					}
 				}
@@ -228,15 +233,14 @@ func TestCLIBinaryEndToEnd(t *testing.T) {
 			t.Fatalf("exit=%d", code)
 		}
 		lines := assertE2ELines(t, stdout, 3)
-		wantOld := fmt.Sprintf(`dir=%s sessionId=copilot-old createTime=%s lastTime=%s file=%s userMsgAmount=2 title="Fix: #1"`,
-			f.workspace, may18.Add(5*time.Minute).Format("20060102_15:04:05"),
-			may18.Add(10*time.Minute).Format("20060102_15:04:05"), old)
-		if lines[0] != wantOld {
-			t.Fatalf("first line = %q, want %q", lines[0], wantOld)
+		if !strings.HasPrefix(lines[0], "copilot-old  ") ||
+			!strings.Contains(lines[0], "  Fix: #1  ") || !strings.Contains(lines[0], "  2  ") ||
+			!strings.Contains(lines[0], may18.Add(5*time.Minute).Format("20060102_15:04:05")) ||
+			!strings.HasSuffix(lines[0], may18.Add(10*time.Minute).Format("20060102_15:04:05")) {
+			t.Fatalf("first line = %q; journal = %s", lines[0], old)
 		}
 		wantRecentTime := recent.Format("20060102_15:04:05")
-		if !strings.Contains(lines[2], "createTime="+wantRecentTime+" lastTime="+wantRecentTime+" ") ||
-			!strings.Contains(lines[2], "userMsgAmount=0 ") {
+		if strings.Count(lines[2], wantRecentTime) != 2 || !strings.Contains(lines[2], "  0  ") {
 			t.Fatalf("zero-message session time or count incorrect: %s", lines[2])
 		}
 	})
@@ -244,12 +248,12 @@ func TestCLIBinaryEndToEnd(t *testing.T) {
 	t.Run("default provider and top one", func(t *testing.T) {
 		stdout, stderr, code := f.run(t, "-n", "1")
 		lines := assertE2ELines(t, stdout, 1)
-		if code != 0 || !strings.HasPrefix(stderr, "provider: copilot\n") ||
-			!strings.Contains(lines[0], "sessionId=copilot-unnamed ") {
+		if code != 0 || stderr != "" || !strings.HasPrefix(stdout, "provider: copilot\n") ||
+			!strings.HasPrefix(lines[0], "copilot-unnamed  ") {
 			t.Fatalf("default = (code=%d, stdout=%q, stderr=%q)", code, stdout, stderr)
 		}
 		stdout, _, code = f.run(t, "-t", "codex", "-n", "1")
-		if code != 0 || !strings.Contains(assertE2ELines(t, stdout, 1)[0], "sessionId=codex-unnamed ") {
+		if code != 0 || !strings.HasPrefix(assertE2ELines(t, stdout, 1)[0], "codex-unnamed  ") {
 			t.Fatalf("explicit Codex top one = (code=%d, stdout=%q)", code, stdout)
 		}
 	})
@@ -258,13 +262,13 @@ func TestCLIBinaryEndToEnd(t *testing.T) {
 		day := may18.Format("20060102")
 		stdout, stderr, code := f.run(t, "-t", "copilot", "-n", "0", "-s", day, "-e", day)
 		lines := assertE2ELines(t, stdout, 2)
-		if code != 0 || !strings.Contains(lines[0], "sessionId=copilot-old ") ||
-			!strings.Contains(lines[1], "sessionId=copilot-fallback ") ||
-			!strings.Contains(stderr, "matched: 2\n") {
+		if code != 0 || stderr != "" || !strings.HasPrefix(lines[0], "copilot-old  ") ||
+			!strings.HasPrefix(lines[1], "copilot-fallback  ") ||
+			!strings.Contains(stdout, "session number/matched/output: 0/2/2\n") {
 			t.Fatalf("date range = (code=%d, stdout=%q, stderr=%q)", code, stdout, stderr)
 		}
 		stdout, _, code = f.run(t, "-t", "copilot", "-l", "2", "-n", "0")
-		if code != 0 || !strings.Contains(assertE2ELines(t, stdout, 1)[0], "sessionId=copilot-unnamed ") {
+		if code != 0 || !strings.HasPrefix(assertE2ELines(t, stdout, 1)[0], "copilot-unnamed  ") {
 			t.Fatalf("last two days = (code=%d, stdout=%q)", code, stdout)
 		}
 	})
@@ -276,11 +280,12 @@ func TestCLIBinaryEndToEnd(t *testing.T) {
 		}
 		stdout, stderr, code := f.run(t, "-t", "copilot", "-p", ".*", "-x", strings.ToUpper(filepath.Base(f.other)), "-n", "0")
 		if code != 0 || len(assertE2ELines(t, stdout, 3)) != 3 ||
-			!strings.Contains(stderr, "exclude: "+strings.ToUpper(filepath.Base(f.other))) {
-			t.Fatalf("exclude before reading invalid body = (code=%d, stderr=%q)", code, stderr)
+			!strings.Contains(stdout, "exclude: "+strings.ToUpper(filepath.Base(f.other))) || stderr != "" {
+			t.Fatalf("exclude before reading invalid body = (code=%d, stdout=%q, stderr=%q)", code, stdout, stderr)
 		}
 		stdout, stderr, code = f.run(t, "-t", "copilot", "-x", strings.ToUpper(filepath.Base(f.workspace)))
-		if code != 0 || stdout != "" || !strings.Contains(stderr, "matched: 0\noutput: 0\n") {
+		if code != 0 || len(assertE2ELines(t, stdout, 0)) != 0 ||
+			!strings.Contains(stdout, "session number/matched/output: 10/0/0\n") || stderr != "" {
 			t.Fatalf("excluded current project = (code=%d, stdout=%q, stderr=%q)", code, stdout, stderr)
 		}
 	})
