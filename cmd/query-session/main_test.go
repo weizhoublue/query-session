@@ -292,7 +292,7 @@ func TestRunCopilotOutputsNativeTitleAndUnnamedSession(t *testing.T) {
 		!strings.Contains(lines[1], "  Native summary  ") {
 		t.Fatalf("unexpected output: %q", stdout.String())
 	}
-	if !strings.Contains(stdout.String(), "session number/matched/output: 0/2/2\n\n") || stderr.Len() != 0 {
+	if !strings.Contains(stdout.String(), "session limit/matched/output: 0/2/2\n\n") || stderr.Len() != 0 {
 		t.Fatalf("report = %q, stderr = %q", stdout.String(), stderr.String())
 	}
 
@@ -302,7 +302,7 @@ func TestRunCopilotOutputsNativeTitleAndUnnamedSession(t *testing.T) {
 		t.Fatalf("run top one = (%d, %v), stderr = %q", code, err, stderr.String())
 	}
 	created := time.Date(2026, 5, 18, 12, 0, 0, 0, time.UTC).Local().Format("20060102_15:04:05")
-	want := fmt.Sprintf("provider: copilot\ndirectory: %s\ntime range: all\nsession number/matched/output: 1/2/1\n\n", cwd) +
+	want := fmt.Sprintf("provider: copilot\ndirectory: %s\ntime range: all\nsession limit/matched/output: 1/2/1\n\n", cwd) +
 		fmt.Sprintf("%-11s%-16s%-11s%-19s%s\n", "SessionId", "Title", "MsgAmount", "CreateTime", "LastTime") +
 		fmt.Sprintf("%-11s%-16s%-11s%-19s%s\n", "titled", "Native summary", "1", created, created)
 	if stdout.String() != want {
@@ -411,7 +411,7 @@ func TestRunDefaultsToAllDatesAndTenSessions(t *testing.T) {
 	if strings.Contains(stdout.String(), "session-01  ") {
 		t.Fatalf("output contains oldest session:\n%s", stdout.String())
 	}
-	wantSummary := fmt.Sprintf("provider: copilot\ndirectory: %s\ntime range: all\nsession number/matched/output: 10/11/10\n\n", currentDir)
+	wantSummary := fmt.Sprintf("provider: copilot\ndirectory: %s\ntime range: all\nsession limit/matched/output: 10/11/10\n\n", currentDir)
 	if !strings.HasPrefix(stdout.String(), wantSummary) || stderr.Len() != 0 {
 		t.Fatalf("report = %q, stderr = %q", stdout.String(), stderr.String())
 	}
@@ -434,7 +434,7 @@ func TestRunNumberZeroReturnsAllDatesAndAllSessions(t *testing.T) {
 	if got := len(sessionRows(t, stdout.String())); got != 11 {
 		t.Fatalf("printed sessions = %d, want 11; output:\n%s", got, stdout.String())
 	}
-	if !strings.Contains(stdout.String(), "session number/matched/output: 0/11/11\n\n") || stderr.Len() != 0 {
+	if !strings.Contains(stdout.String(), "session limit/matched/output: 0/11/11\n\n") || stderr.Len() != 0 {
 		t.Fatalf("report = %q, stderr = %q", stdout.String(), stderr.String())
 	}
 }
@@ -476,7 +476,7 @@ func TestRunPrintsSummaryWhenNoSessionsMatch(t *testing.T) {
 	if code != 0 || err != nil {
 		t.Fatalf("run() = (%d, %v), want (0, nil)", code, err)
 	}
-	want := fmt.Sprintf("provider: copilot\ndirectory: %s\ntime range: all\nsession number/matched/output: 10/0/0\n\n", currentDir) +
+	want := fmt.Sprintf("provider: copilot\ndirectory: %s\ntime range: all\nsession limit/matched/output: 10/0/0\n\n", currentDir) +
 		"SessionId  Title  MsgAmount  CreateTime  LastTime\n"
 	if stdout.String() != want || stderr.Len() != 0 {
 		t.Fatalf("report = %q, want %q; stderr = %q", stdout.String(), want, stderr.String())
@@ -493,7 +493,7 @@ func TestRunSummaryShowsExplicitFilters(t *testing.T) {
 	if code != 0 || err != nil {
 		t.Fatalf("run() = (%d, %v), want (0, nil)", code, err)
 	}
-	want := "provider: copilot\ndirectory: project-regexp\nexclude: excluded-regexp\ntime range: last 3 days\nsession number/matched/output: 0/0/0\n\n" +
+	want := "provider: copilot\ndirectory: project-regexp\nexclude: excluded-regexp\ntime range: last 3 days\nsession limit/matched/output: 0/0/0\n\n" +
 		"SessionId  Title  MsgAmount  CreateTime  LastTime\n"
 	if stdout.String() != want || stderr.Len() != 0 {
 		t.Fatalf("report = %q, want %q; stderr = %q", stdout.String(), want, stderr.String())
